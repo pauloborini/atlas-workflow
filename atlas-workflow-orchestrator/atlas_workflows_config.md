@@ -53,14 +53,16 @@ Sequência completa: PRD generation → validação → entrevista (condicional)
 ```yaml
 full:
   sequence:
-    - prd_generator
-    - validate_prd
-    - prd_interview (if ambiguidades OR --interview flag)
-    - plan_handoff
+    - prd_generator          # artefato: PRD_*.md          (gate G1)
+    - validate_prd           # scan determinístico         (gate G5)
+    - prd_interview (if ambiguidades OR --interview flag)   # artefato: PRD_*.md atualizado (gate G1)
+    - plan_handoff           # artefato: PLAN_*.md          (gate G1+G2)
     - validate_plan
-    - plan_execute (com task-validator)
+    - plan_execute (com task-validator frio via sub-agent)  # artefato: diff + relatório validador (gate G3+G4)
     - slice_review (if --review flag)
-  
+  required_artifacts: [PRD_*.md, PLAN_*.md, code_diff, validator_report]
+  hard_gates: [G1, G2, G3, G4, G5, G6]
+
   decision_on_plan_gap:
     - option_a: volta_para_entrevista
     - option_b: continua_com_recomendacoes (TBD marcado)
@@ -74,11 +76,14 @@ Sequência enxuta: PRD → validação → entrevista (condicional) → executor
 ```yaml
 direct:
   sequence:
-    - prd_generator (ou usa existente)
-    - validate_prd
+    - prd_generator (ou usa existente)   # artefato: PRD_*.md (gate G1)
+    - validate_prd                       # scan determinístico (gate G5)
     - prd_interview (if ambiguidades OR --interview flag)
-    - plan_execute (sem handoff)
+    - plan_execute (sem handoff, task-validator frio via sub-agent)  # artefato: diff + relatório (gate G3+G4)
     - slice_review (if --review flag)
+  required_artifacts: [PRD_*.md, code_diff, validator_report]
+  hard_gates: [G1, G3, G4, G5, G6]   # G2 não se aplica: direct não produz PLAN_*.md por design
+  nota: "se o escopo exigir handoff formal, avisar usuário e sugerir full — nunca fabricar PLAN_*.md ad hoc"
 ```
 
 ### Interview-Only Mode
@@ -132,6 +137,56 @@ validation:
   
   # Se encontra >= 1 padrão, dispara entrevista automaticamente
   threshold: 1
+
+  # Gate G5 — decisão determinística, sem escape hatch.
+  # Pular entrevista SÓ é válido se scan retornar 0 padrões E o resultado for logado no output.
+  # Não existe "pular porque tenho certeza". --interview sempre força.
+  skip_rule: "skip_only_if(matches == 0) AND log('Ambiguity scan: 0 padrões — entrevista pulada')"
+  force_flag: "--interview"
+```
+
+---
+
+## Gates Duros (HARD GATES)
+
+Regras inegociáveis aplicadas pela SKILL. Violação = parar, não contornar.
+
+```yaml
+hard_gates:
+  G1_artifact_before_advance:
+    rule: "fase só conclui se o arquivo que ela produz existir em disco; verificar com Read/ls, nunca auto-relato"
+    applies: all
+  G2_no_code_before_plan:
+    rule: "em full, proibido escrever código (Dart) antes de PLAN_*.md validado existir; sem plano = usar direct"
+    applies: full
+  G3_real_skill_invocation:
+    rule: "cada fase invoca a skill via Skill tool (validador via Agent tool); proibido emular/absorver inline (plano no §10 do PRD NÃO substitui PLAN_*.md)"
+    applies: all
+  G4_cold_validator:
+    rule: "task-validator roda em contexto isolado (sub-agent), recebe git diff + plano; executor não valida o próprio trabalho"
+    applies: execution
+  G5_deterministic_scan:
+    rule: "ver validation.skip_rule — pular entrevista só com 0 padrões logados"
+    applies: prd_validation
+  G6_verified_status:
+    rule: "✅ só após confirmar artefato em disco; artefato exigido ausente => status 'incomplete', nunca 'completed'"
+    applies: output
+```
+
+---
+
+## Pré-flight (Fase 0)
+
+```yaml
+preflight:
+  steps:
+    - parse_args                # inválido/--help => mostra sintaxe e para
+    - resolve_skills_for_tool   # via mapeamento acima
+    - verify_invocability       # skills mapeadas existem como invocáveis neste host?
+    - declare_execution_plan    # modo, fases, artefatos esperados, gates aplicáveis
+  on_missing_skill:
+    action: "abortar e reportar — NUNCA emular skill inline"
+    rationale: "emulação inline é a falha-raiz que a v0.1.2 proíbe (full degradava para 'só coda')"
 ```
 
 ---

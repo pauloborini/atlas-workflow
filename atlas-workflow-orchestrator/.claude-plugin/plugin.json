@@ -1,7 +1,7 @@
 {
   "name": "atlas-workflow-orchestrator",
-  "version": "0.1.1",
-  "description": "Orquestra pipelines completos de desenvolvimento de features no Atlas — PRD generation, validação, entrevista, planejamento e execução sob demanda.",
+  "version": "0.1.2",
+  "description": "Orquestra pipelines completos de desenvolvimento de features no Atlas — PRD generation, validação, entrevista, planejamento e execução sob demanda. Pipeline orientado a artefato com gates duros (G1–G6).",
   "author": {
     "name": "Paulo Borini"
   },

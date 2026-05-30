@@ -227,6 +227,14 @@ Veja `atlas_workflows_config.md` para detalhes técnicos e mapeamentos completos
 
 ---
 
-**Plugin version:** 0.1.0 (MVP)  
+**Plugin version:** 0.1.2  
 **Author:** Paulo Borini  
 **Last updated:** 2026-05-30
+
+### Novidades v0.1.2 — pipeline orientado a artefato
+
+Conserta a degradação onde `full` virava "só coda" (sem plano, sem validador frio, auto-aprovando):
+
+- **Fase 0 pré-flight:** verifica se as skills exigidas existem como invocáveis no host. Se faltar → para e reporta; **nunca emula a skill inline**.
+- **Gates duros G1–G6:** cada fase só conclui com artefato em disco (G1); em `full`, zero código antes de `PLAN_*.md` validado (G2); skills invocadas de verdade, não absorvidas no §10 do PRD (G3); validador frio como sub-agent separado (G4); scan de ambiguidade determinístico e logado, sem escape hatch "tenho certeza" (G5); status verificado contra disco (G6).
+- **`direct` ≠ `full` de verdade:** `direct` não produz `PLAN_*.md` por design; `full` exige o plano antes de qualquer código.

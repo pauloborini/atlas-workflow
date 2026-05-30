@@ -33,3 +33,5 @@ Exemplos:
 ```
 
 Não improvise comportamento fora do `SKILL.md`. Em caso de ambiguidade ou erro, siga as seções "Lógica de decisão" e "Error handling" da skill.
+
+**Gates duros (v0.1.2):** o pipeline é orientado a artefato. Antes de iniciar, rode a **Fase 0 (Pré-flight)** — se uma skill exigida não existir como invocável neste host, **pare e reporte; nunca emule a skill inline**. Respeite os Gates G1–G6 da SKILL: cada fase só conclui com o arquivo em disco (G1); em `full`, nenhum código antes de `PLAN_*.md` validado (G2); skills invocadas de verdade, não absorvidas no PRD (G3); validador frio como sub-agent separado (G4); scan de ambiguidade determinístico e logado (G5); status verificado contra disco (G6).
