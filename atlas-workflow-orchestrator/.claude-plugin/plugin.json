@@ -1,0 +1,17 @@
+{
+  "name": "atlas-workflow-orchestrator",
+  "version": "0.1.0",
+  "description": "Orquestra pipelines completos de desenvolvimento de features no Atlas — PRD generation, validação, entrevista, planejamento e execução sob demanda.",
+  "author": {
+    "name": "Paulo Borini"
+  },
+  "keywords": [
+    "atlas",
+    "workflow",
+    "orchestration",
+    "prd",
+    "planning",
+    "execution",
+    "automation"
+  ]
+}
