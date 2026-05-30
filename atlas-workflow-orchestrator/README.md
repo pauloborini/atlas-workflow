@@ -227,9 +227,17 @@ Veja `atlas_workflows_config.md` para detalhes técnicos e mapeamentos completos
 
 ---
 
-**Plugin version:** 0.1.3  
+**Plugin version:** 0.1.4  
 **Author:** Paulo Borini  
 **Last updated:** 2026-05-30
+
+### Novidades v0.1.4 — orquestrador de mãos atadas
+
+Conserta falha do GF08 (orquestrador implementou inline em paralelo ao sub-agent de execução; contexto 87%; slice-review feito inline):
+
+- **Gate G9 — orquestrador é coordenador:** após a Fase 0, **proibido** editar arquivo, escrever Dart, rodar comando mutante (flutter/test/git write) ou implementar "em paralelo". Únicas ações: despachar sub-agent, ler artefato, reportar.
+- **Dispatch blocking:** despacha **um** sub-agent por vez (foreground), **espera o retorno**, só então segue. `run_in_background` proibido para fases do pipeline. Sem dois sub-agents simultâneos.
+- **`slice-review` é sub-agent de verdade (G7):** despachado, nunca revisão inline narrada pelo orquestrador.
 
 ### Novidades v0.1.3 — sub-agent forçado + ordem de validação
 

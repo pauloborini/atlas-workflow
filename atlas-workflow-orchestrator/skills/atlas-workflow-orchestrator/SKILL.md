@@ -82,6 +82,16 @@ Executar **antes** de iniciar o pipeline. Se qualquer item falhar, **parar e rep
 
 ---
 
+## Papel do orquestrador (mãos atadas)
+
+O orquestrador **coordena**, não implementa. Pense nele como um maestro: aponta para cada músico (sub-agent) na ordem certa e espera cada um terminar. Ele nunca pega um instrumento.
+
+- **Permitido:** parse de args, scan de ambiguidade, despachar sub-agent (blocking, um por vez), ler artefato em disco para verificar gate, montar o output final.
+- **Proibido (Gate G9):** editar arquivo, escrever Dart, rodar comando mutante (`flutter`, `test`, `git add/commit`), implementar "em paralelo", usar `run_in_background` para fases do pipeline.
+- **Dispatch blocking:** despacha → **espera o retorno** → verifica gate → próxima fase. Nunca dois sub-agents simultâneos. Nunca trabalhar enquanto um sub-agent roda.
+
+Se você (orquestrador) está prestes a editar código, **pare**: esse trabalho é do sub-agent de execução. Despache-o e espere.
+
 ## Gates duros (HARD GATES)
 
 Regras inegociáveis. Violação = parar, não contornar.
@@ -95,7 +105,8 @@ Regras inegociáveis. Violação = parar, não contornar.
 | G5 | **Scan de ambiguidade determinístico e logado.** A decisão de pular a entrevista só é válida se o scan retornar **zero** padrões e esse resultado for registrado no output. Não existe "pular porque tenho certeza". `--interview` sempre força. | validação PRD |
 | G6 | **Status verificado, não auto-reportado.** O ✅ de cada item no output só pode ser marcado após confirmar o artefato em disco. Faltou artefato exigido pelo modo → status final `incomplete`, nunca `completed`. | output |
 | G7 | **Plano e execução rodam como sub-agent despachado (Agent tool), nunca no contexto do orquestrador.** As fases `plan_handoff` e `plan_execute` **devem** ser disparadas como sub-agents. Proibido produzir o plano ou escrever o código no próprio fio do orquestrador. Além disso, o `PLAN_*.md` **deve** conformar ao template da skill `plan_handoff` (§2 invariantes, §10 contratos, §11 riscos, §14 checklist, tasks numeradas T01..Tn). Plano sem essas seções = G7 violado → refazer via sub-agent. | plano + execução |
-| G8 | **Ordem fixa de validação: `task-validator` ANTES, `slice-review` POR ÚLTIMO. Nunca em paralelo.** O `task-validator` roda **dentro/antes** do relatório final do executor (alimenta o reparo, bloqueia o relatório). O `slice-review` (se `--review`) roda como fase final **separada**, só **depois** do executor retornar 100%. É proibido disparar `slice-review` enquanto o executor ou o `task-validator` ainda estão rodando. São funções distintas em sequência, jamais concorrentes. | validação + review |
+| G8 | **Ordem fixa de validação: `task-validator` ANTES, `slice-review` POR ÚLTIMO. Nunca em paralelo.** O `task-validator` roda **dentro/antes** do relatório final do executor (alimenta o reparo, bloqueia o relatório). O `slice-review` (se `--review`) roda como sub-agent de fase final **separada** (Gate G7 também se aplica a ele — é um sub-agent despachado, **nunca** uma revisão inline narrada pelo orquestrador), só **depois** do executor retornar 100%. É proibido disparar `slice-review` enquanto o executor ou o `task-validator` ainda estão rodando. São funções distintas em sequência, jamais concorrentes. | validação + review |
+| G9 | **Orquestrador é coordenador de mãos atadas.** Depois da Fase 0, o orquestrador **NÃO** edita arquivos, **NÃO** escreve código, **NÃO** roda comando mutante (flutter/test/git write), **NÃO** "ajuda" o sub-agent. Suas únicas ações permitidas: despachar sub-agent, ler artefato em disco para verificação de gate, e produzir o output final. **Dispatch é blocking**: despacha **um** sub-agent por vez (Agent tool em foreground), **espera o retorno**, só então segue. Proibido `run_in_background` para fases do pipeline e proibido o orquestrador implementar "em paralelo" enquanto um sub-agent roda. Se o orquestrador tocar em código = G9 violado. | orquestrador |
 
 ---
 
@@ -112,7 +123,7 @@ Artefatos esperados (em ordem): `PRD_*.md` → (`PRD_*.md` atualizado) → `PLAN
 5. **Plan** — despacha `claude-plan-handoff` **como sub-agent (Agent tool)** (Gate G7). **Gate G1 + G2:** confirmar `PLAN_*.md` em disco e que conforma ao template (§2/§10/§11/§14 + tasks T01..Tn). **Nenhuma linha de código pode ter sido escrita até aqui.**
 6. **Validate plan** — se há gaps → aplica a Lógica de decisão (A/B/C).
 7. **Execute** — despacha `claude-plan-execute` **como sub-agent (Agent tool)** lendo o `PLAN_*.md` (Gate G7). Dentro desse sub-agent, **antes do relatório final**, o executor dispara `claude-task-validator` como sub-agent frio separado com git diff + plano (Gate G4). Findings P1/P2 alimentam reparo limitado; só então o executor retorna. **Gate G8:** validador roda aqui, slice-review NÃO.
-8. **Review (condicional)** — **somente após o executor retornar 100%** (Gate G8) e se `--review` → despacha `claude-slice-review` como fase final separada. Proibido em paralelo com a Fase 7.
+8. **Review (condicional)** — **somente após o executor retornar 100%** (Gate G8) e se `--review` → **despacha `claude-slice-review` como sub-agent** (Agent tool, blocking — Gate G7+G9). É uma fase final separada, jamais uma revisão inline escrita pelo orquestrador. Proibido em paralelo com a Fase 7.
 9. **Output** — ledger verificado (ver "Output") + próximos passos.
 
 ### Direct mode
@@ -258,10 +269,11 @@ orquestrador
  └─ REVIEW     → sub-agent slice_review (só se --review, SÓ após executor 100%, G8) — nunca paralelo
 ```
 
-Regra de ouro: **um sub-agent por fase, em série**. `task-validator` ⟂ `slice-review` jamais coexistem.
+Regra de ouro: **um sub-agent por fase, em série, blocking**. O orquestrador espera cada sub-agent terminar antes do próximo e **nunca** trabalha em paralelo (Gate G9). `task-validator` ⟂ `slice-review` jamais coexistem.
 
 ## Changelog
 
+- **v0.1.4** — Orquestrador de mãos atadas. Gate G9 (orquestrador é coordenador: proibido editar código/rodar comando mutante/implementar em paralelo; dispatch blocking, um sub-agent por vez, sem `run_in_background`). G7 estendido ao `slice-review` (deve ser sub-agent despachado, não revisão inline). Corrige GF08: orquestrador implementou inline em paralelo ao sub-agent de execução (contexto 87%) e fez slice-review inline.
 - **v0.1.3** — Força sub-agent. Gate G7 (plano e execução despachados como sub-agent, nunca inline; `PLAN_*.md` deve conformar ao template da skill `plan_handoff`). Gate G8 (ordem fixa: `task-validator` antes/dentro do executor, `slice-review` por último, nunca em paralelo). Fase 0 reforçada: matou o fallback "implementação direta / contratos equivalentes inline" — host sem sub-agent despachável **aborta**. Corrige falhas observadas no GF07 (plano sem template, validator+slice em paralelo, fallback inline no Cursor).
 - **v0.1.2** — Pipeline orientado a artefato. Adicionados: Fase 0 pré-flight (verifica invocabilidade, proíbe emulação inline), Gates duros G1–G6, scan de ambiguidade determinístico (mata o escape hatch "tenho certeza"), validador frio obrigatório como sub-agent, ledger verificado contra disco. `direct` explicitamente não produz `PLAN_*.md`.
 - **v0.1.1** — `/workflow` slash command.

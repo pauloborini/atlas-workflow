@@ -61,7 +61,7 @@ full:
     - plan_execute (com task-validator frio via sub-agent)  # artefato: diff + relatório validador (gate G3+G4)
     - slice_review (if --review flag)
   required_artifacts: [PRD_*.md, PLAN_*.md, code_diff, validator_report]
-  hard_gates: [G1, G2, G3, G4, G5, G6, G7, G8]
+  hard_gates: [G1, G2, G3, G4, G5, G6, G7, G8, G9]
   subagent_order: [prd_generator, plan_handoff, plan_execute → task-validator, slice_review (if --review)]
 
   decision_on_plan_gap:
@@ -83,7 +83,7 @@ direct:
     - plan_execute (sem handoff, task-validator frio via sub-agent)  # artefato: diff + relatório (gate G3+G4)
     - slice_review (if --review flag)
   required_artifacts: [PRD_*.md, code_diff, validator_report]
-  hard_gates: [G1, G3, G4, G5, G6, G7, G8]   # G2 não se aplica: direct não produz PLAN_*.md por design
+  hard_gates: [G1, G3, G4, G5, G6, G7, G8, G9]   # G2 não se aplica: direct não produz PLAN_*.md por design
   subagent_order: [prd_generator, plan_execute → task-validator, slice_review (if --review)]
   nota: "se o escopo exigir handoff formal, avisar usuário e sugerir full — nunca fabricar PLAN_*.md ad hoc"
 ```
@@ -178,9 +178,24 @@ hard_gates:
     applies: [plan, execution]
     rationale: "GF07 não disparou sub-agent p/ plano => plano sem template, terrível"
   G8_validation_order:
-    rule: "task-validator ANTES (dentro/antes do relatório do executor); slice-review POR ÚLTIMO (só após executor 100%); JAMAIS em paralelo"
+    rule: "task-validator ANTES (dentro/antes do relatório do executor); slice-review POR ÚLTIMO (só após executor 100%, como sub-agent despachado — G7); JAMAIS em paralelo"
     applies: [validation, review]
     rationale: "GF07 rodou task-validator e slice-review concorrentes — funções e ordem distintas"
+  G9_orchestrator_hands_off:
+    rule: "após Fase 0, orquestrador NÃO edita arquivo, NÃO escreve código, NÃO roda comando mutante (flutter/test/git write), NÃO implementa em paralelo; só despacha sub-agent (blocking, 1 por vez), lê artefato, reporta. Proibido run_in_background para fases do pipeline"
+    applies: orchestrator
+    rationale: "GF08 — orquestrador implementou inline em paralelo ao sub-agent de execução (contexto 87%)"
+```
+
+### Política de dispatch
+
+```yaml
+dispatch_policy:
+  mode: blocking            # despacha 1 sub-agent, ESPERA retorno, então segue
+  concurrency: 1            # nunca 2 sub-agents simultâneos
+  background: forbidden     # run_in_background proibido para fases do pipeline
+  orchestrator_tools_after_phase0: [dispatch_subagent, read_artifact, emit_output]
+  orchestrator_forbidden: [edit_file, write_code, mutating_bash, parallel_impl]
 ```
 
 ---
