@@ -227,9 +227,17 @@ Veja `atlas_workflows_config.md` para detalhes técnicos e mapeamentos completos
 
 ---
 
-**Plugin version:** 0.1.4  
+**Plugin version:** 0.1.5  
 **Author:** Paulo Borini  
 **Last updated:** 2026-05-30
+
+### Novidades v0.1.5 — roteamento por `<tool>`, não por host
+
+Conserta falha do GF09 (comando `claude` roteou pra `cursor-*`, pegou a variante `-orchestrated` errada e misturou famílias PRD-claude / resto-cursor):
+
+- **Gate G10 — `<tool>` autoritativo:** a família de skills é definida **só** pelo argumento `<tool>` (`claude`→`claude-*`, `cursor`→`cursor-*`, `codex`→`codex-*`). O **host não escolhe família** — o Cursor enxerga e despacha as três; ele é só onde roda.
+- **Família única por run:** proibido misturar (PRD em claude, plano em cursor). Skill ausente → fallback **por-skill** declarado na config, senão aborta. Nunca troca a família inteira.
+- **Id exato:** proibido substituir por variante (`-orchestrated`, `-experimental`) sem flag explícita do usuário.
 
 ### Novidades v0.1.4 — orquestrador de mãos atadas
 

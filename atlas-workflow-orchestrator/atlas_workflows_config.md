@@ -13,21 +13,25 @@ claude:
   prd_generator: claude-sprint-prd-generator
   prd_interview: claude-prd-interview
   plan_handoff: claude-plan-handoff
-  plan_execute: claude-plan-execute
+  plan_execute: claude-plan-execute        # id EXATO; NUNCA claude-plan-execute-orchestrated sem flag (G10)
   slice_review: claude-slice-review
-  task_validator: (sub-agent dentro de execute)
+  task_validator: claude-task-validator    # sub-agent frio dentro de execute
+# G10: estes ids são autoritativos quando <tool>=claude, independente do host.
+# Proibido substituir por variante (-orchestrated) salvo flag explícita do usuário.
 ```
 
 ### Cursor (Futuro)
 
 ```yaml
 cursor:
-  prd_generator: (usar codex-sprint-prd-generator ou claude-sprint-prd-generator)
+  prd_generator: claude-sprint-prd-generator   # fallback POR-SKILL declarado (G10): cursor não tem prd-generator próprio
   prd_interview: cursor-prd-interview
   plan_handoff: cursor-plan-handoff
-  plan_execute: cursor-plan-execute
+  plan_execute: cursor-plan-execute             # id EXATO; NUNCA cursor-plan-execute-orchestrated sem flag (G10)
   slice_review: cursor-slice-review
-  task_validator: (sub-agent dentro de execute)
+  task_validator: cursor-task-validator         # sub-agent frio dentro de execute
+# Família cursor-* só quando <tool>=cursor. prd_generator é a ÚNICA exceção cross-família,
+# declarada por-skill (não é "trocar a família inteira"). Resto permanece cursor-*.
 ```
 
 ### Codex (Futuro)
@@ -61,7 +65,7 @@ full:
     - plan_execute (com task-validator frio via sub-agent)  # artefato: diff + relatório validador (gate G3+G4)
     - slice_review (if --review flag)
   required_artifacts: [PRD_*.md, PLAN_*.md, code_diff, validator_report]
-  hard_gates: [G1, G2, G3, G4, G5, G6, G7, G8, G9]
+  hard_gates: [G1, G2, G3, G4, G5, G6, G7, G8, G9, G10]
   subagent_order: [prd_generator, plan_handoff, plan_execute → task-validator, slice_review (if --review)]
 
   decision_on_plan_gap:
@@ -83,7 +87,7 @@ direct:
     - plan_execute (sem handoff, task-validator frio via sub-agent)  # artefato: diff + relatório (gate G3+G4)
     - slice_review (if --review flag)
   required_artifacts: [PRD_*.md, code_diff, validator_report]
-  hard_gates: [G1, G3, G4, G5, G6, G7, G8, G9]   # G2 não se aplica: direct não produz PLAN_*.md por design
+  hard_gates: [G1, G3, G4, G5, G6, G7, G8, G9, G10]   # G2 não se aplica: direct não produz PLAN_*.md por design
   subagent_order: [prd_generator, plan_execute → task-validator, slice_review (if --review)]
   nota: "se o escopo exigir handoff formal, avisar usuário e sugerir full — nunca fabricar PLAN_*.md ad hoc"
 ```
@@ -185,6 +189,10 @@ hard_gates:
     rule: "após Fase 0, orquestrador NÃO edita arquivo, NÃO escreve código, NÃO roda comando mutante (flutter/test/git write), NÃO implementa em paralelo; só despacha sub-agent (blocking, 1 por vez), lê artefato, reporta. Proibido run_in_background para fases do pipeline"
     applies: orchestrator
     rationale: "GF08 — orquestrador implementou inline em paralelo ao sub-agent de execução (contexto 87%)"
+  G10_tool_authoritative_routing:
+    rule: "família de skills = <tool> do comando, NUNCA o host; família única por run (sem mistura); id exato sempre (proibido variante -orchestrated sem flag); skill ausente => fallback por-skill declarado, senão aborta (nunca troca família inteira)"
+    applies: routing
+    rationale: "GF09 — 'claude' roteou pra cursor-*, pegou variante -orchestrated, misturou famílias"
 ```
 
 ### Política de dispatch
@@ -205,19 +213,26 @@ dispatch_policy:
 ```yaml
 preflight:
   steps:
-    - parse_args                # inválido/--help => mostra sintaxe e para
-    - resolve_skills_for_host   # claude-* | cursor-* | codex-* conforme host real
-    - verify_subagent_dispatch  # skills despacháveis via Agent tool neste host?
-    - declare_execution_plan    # modo, fases, ORDEM dos sub-agents, artefatos, gates
-  host_resolution:
-    - "host claude-* invocável  => usa claude-*"
-    - "host Cursor/Codex        => mapeia cursor-*/codex-* e despacha ESSAS como sub-agent"
+    - parse_args                 # inválido/--help => mostra sintaxe e para
+    - select_family_from_tool    # <tool> AUTORITATIVO define a família (G10)
+    - resolve_exact_skill_ids    # ids exatos da família, sem variante
+    - verify_subagent_dispatch   # cada id despachável via Agent tool neste host?
+    - declare_execution_plan     # modo, família, ids, ORDEM dos sub-agents, artefatos, gates
+  family_selection:
+    rule: "família = <tool> do comando (claude=>claude-*, cursor=>cursor-*, codex=>codex-*)"
+    host_role: "host só executa; NÃO escolhe família. Cursor despacha claude-*/cursor-*/codex-*"
+    forbidden: "trocar família por causa do host; misturar famílias numa run (G10)"
+    rationale: "GF09 — comando 'claude' roteou pra cursor-* porque a regra antiga olhava o host"
+  variant_policy:
+    rule: "usar SEMPRE o id exato mapeado; proibido substituir por variante (-orchestrated, -experimental) salvo flag explícita"
+    rationale: "GF09 — pegou cursor-plan-execute-orchestrated no lugar de cursor-plan-execute"
   on_missing_skill:
-    action: "ABORTAR e reportar"
+    action: "usar fallback POR-SKILL declarado p/ aquele id; se não houver => ABORTAR"
     forbidden_fallbacks:
+      - "trocar a família inteira por causa de uma skill ausente"
       - "implementação direta inline"
       - "contratos equivalentes no fio do orquestrador"
-    rationale: "GF07 contornou via 'implementação direta com gates' — fallback inline proibido (G7)"
+    rationale: "fallback inline proibido (G7); troca de família proibida (G10)"
 ```
 
 ---

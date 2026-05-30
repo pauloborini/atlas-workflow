@@ -65,20 +65,20 @@ Orquestra pipelines de desenvolvimento de features no projeto Atlas, automatizan
 Executar **antes** de iniciar o pipeline. Se qualquer item falhar, **parar e reportar** — nunca emular.
 
 1. **Parse** dos argumentos `<tool> <mode> <input-type> [input] [flags]`. Se inválido ou `--help` → mostrar sintaxe e parar.
-2. **Resolver as skills** do `<tool>` via `atlas_workflows_config.md` (ex: `claude` → `claude-plan-handoff`, `claude-plan-execute`, etc.).
-3. **Verificar invocabilidade como sub-agent.** Confirmar que as skills mapeadas existem como **invocáveis via Skill tool E despacháveis via Agent tool** neste host. Resolução de host:
-   - host com skills `claude-*` invocáveis → usar `claude-*`;
-   - host Cursor/Codex → mapear para `cursor-*`/`codex-*` per config e usar **essas** como sub-agents;
-   - se **nenhuma** variante (claude-* nem equivalente do host) for despachável como sub-agent → **ABORTAR**.
+2. **`<tool>` é autoritativo — define a família de skills.** `claude` → família `claude-*`, `cursor` → `cursor-*`, `codex` → `codex-*`. **O host (Cursor/Codex/Claude Code) NÃO escolhe a família.** Host é só o lugar onde roda; um host como o Cursor enxerga e despacha as três famílias. Proibido trocar a família por causa do host. Resolver os ids exatos via `atlas_workflows_config.md` (ver Gate G10).
+3. **Verificar despachabilidade da família escolhida.** Para cada skill exigida pelo modo, confirmar que o **id exato** daquela família é invocável via Skill tool e despachável via Agent tool neste host.
+   - **Família mista é proibida** (Gate G10): não rode PRD em `claude-*` e plano em `cursor-*`. Toda a run usa **uma** família.
+   - Se uma skill específica da família **não existir**, usar **somente** o fallback por-skill declarado na config para aquele id (ex: `cursor.prd_generator`). Se não houver fallback declarado → **ABORTAR**, não trocar a família inteira.
+   - **Nunca substituir por variante** (ex: `-orchestrated`, `-experimental`) salvo flag explícita do usuário (Gate G10).
    ```text
    ⛔ Pré-flight falhou
-      Host: <host detectado>
-      Skill exigida ausente: <nome>
-      Motivo: skill não despachável como sub-agent neste host
-      Ação: rodar em host com as skills do <tool>, ou trocar de <tool>
+      Família (<tool>): <claude-*|cursor-*|codex-*>
+      Skill exigida ausente: <id exato>
+      Motivo: id não despachável neste host e sem fallback por-skill declarado
+      Ação: rodar onde a família <tool> esteja disponível, ou trocar o <tool> do comando
    ```
    **PROIBIDO o fallback "implementação direta" / "contratos equivalentes inline".** Não existe caminho onde o orquestrador faz plano ou código no próprio fio. Emulação inline e fallback direto são a falha-raiz que esta skill proíbe — se não há sub-agent, **para**. (Gate G7.)
-4. **Declarar o plano de execução** (1 bloco curto): modo, sequência de fases, **quais sub-agents serão despachados e em que ordem** (plan_handoff → execute[→task-validator] → slice-review), artefatos esperados, gates aplicáveis. Só então iniciar a Fase 1.
+4. **Declarar o plano de execução** (1 bloco curto): modo, **família escolhida + ids exatos de cada sub-agent**, sequência de fases e ordem dos sub-agents (plan_handoff → execute[→task-validator] → slice-review), artefatos esperados, gates aplicáveis. Só então iniciar a Fase 1.
 
 ---
 
@@ -106,6 +106,7 @@ Regras inegociáveis. Violação = parar, não contornar.
 | G6 | **Status verificado, não auto-reportado.** O ✅ de cada item no output só pode ser marcado após confirmar o artefato em disco. Faltou artefato exigido pelo modo → status final `incomplete`, nunca `completed`. | output |
 | G7 | **Plano e execução rodam como sub-agent despachado (Agent tool), nunca no contexto do orquestrador.** As fases `plan_handoff` e `plan_execute` **devem** ser disparadas como sub-agents. Proibido produzir o plano ou escrever o código no próprio fio do orquestrador. Além disso, o `PLAN_*.md` **deve** conformar ao template da skill `plan_handoff` (§2 invariantes, §10 contratos, §11 riscos, §14 checklist, tasks numeradas T01..Tn). Plano sem essas seções = G7 violado → refazer via sub-agent. | plano + execução |
 | G8 | **Ordem fixa de validação: `task-validator` ANTES, `slice-review` POR ÚLTIMO. Nunca em paralelo.** O `task-validator` roda **dentro/antes** do relatório final do executor (alimenta o reparo, bloqueia o relatório). O `slice-review` (se `--review`) roda como sub-agent de fase final **separada** (Gate G7 também se aplica a ele — é um sub-agent despachado, **nunca** uma revisão inline narrada pelo orquestrador), só **depois** do executor retornar 100%. É proibido disparar `slice-review` enquanto o executor ou o `task-validator` ainda estão rodando. São funções distintas em sequência, jamais concorrentes. | validação + review |
+| G10 | **`<tool>` autoritativo, família única, id exato.** A família de skills é definida **exclusivamente** pelo argumento `<tool>` do comando, nunca pelo host. Proibido misturar famílias numa run (tudo `claude-*` OU tudo `cursor-*` OU tudo `codex-*`). Usar sempre o **id exato** mapeado na config; **proibido substituir por variante** (`-orchestrated`, `-experimental`, etc.) salvo flag explícita do usuário. Skill ausente → fallback **por-skill** declarado, senão aborta — nunca trocar a família inteira. | roteamento |
 | G9 | **Orquestrador é coordenador de mãos atadas.** Depois da Fase 0, o orquestrador **NÃO** edita arquivos, **NÃO** escreve código, **NÃO** roda comando mutante (flutter/test/git write), **NÃO** "ajuda" o sub-agent. Suas únicas ações permitidas: despachar sub-agent, ler artefato em disco para verificação de gate, e produzir o output final. **Dispatch é blocking**: despacha **um** sub-agent por vez (Agent tool em foreground), **espera o retorno**, só então segue. Proibido `run_in_background` para fases do pipeline e proibido o orquestrador implementar "em paralelo" enquanto um sub-agent roda. Se o orquestrador tocar em código = G9 violado. | orquestrador |
 
 ---
@@ -273,6 +274,7 @@ Regra de ouro: **um sub-agent por fase, em série, blocking**. O orquestrador es
 
 ## Changelog
 
+- **v0.1.5** — Roteamento por `<tool>`, não por host. Gate G10: `<tool>` é autoritativo (define a família `claude-*`/`cursor-*`/`codex-*`); host NÃO escolhe família (Cursor despacha as três). Família única por run (proibido misturar), id exato (proibido variante `-orchestrated` sem flag), fallback só por-skill declarado. Fase 0 reescrita: removida a resolução "host Cursor ⇒ cursor-*" que ignorava o arg. Corrige GF09 (comando `claude` roteou pra `cursor-*` + pegou `cursor-plan-execute-orchestrated` errado + misturou famílias PRD-claude/resto-cursor).
 - **v0.1.4** — Orquestrador de mãos atadas. Gate G9 (orquestrador é coordenador: proibido editar código/rodar comando mutante/implementar em paralelo; dispatch blocking, um sub-agent por vez, sem `run_in_background`). G7 estendido ao `slice-review` (deve ser sub-agent despachado, não revisão inline). Corrige GF08: orquestrador implementou inline em paralelo ao sub-agent de execução (contexto 87%) e fez slice-review inline.
 - **v0.1.3** — Força sub-agent. Gate G7 (plano e execução despachados como sub-agent, nunca inline; `PLAN_*.md` deve conformar ao template da skill `plan_handoff`). Gate G8 (ordem fixa: `task-validator` antes/dentro do executor, `slice-review` por último, nunca em paralelo). Fase 0 reforçada: matou o fallback "implementação direta / contratos equivalentes inline" — host sem sub-agent despachável **aborta**. Corrige falhas observadas no GF07 (plano sem template, validator+slice em paralelo, fallback inline no Cursor).
 - **v0.1.2** — Pipeline orientado a artefato. Adicionados: Fase 0 pré-flight (verifica invocabilidade, proíbe emulação inline), Gates duros G1–G6, scan de ambiguidade determinístico (mata o escape hatch "tenho certeza"), validador frio obrigatório como sub-agent, ledger verificado contra disco. `direct` explicitamente não produz `PLAN_*.md`.
