@@ -227,9 +227,17 @@ Veja `atlas_workflows_config.md` para detalhes técnicos e mapeamentos completos
 
 ---
 
-**Plugin version:** 0.1.2  
+**Plugin version:** 0.1.3  
 **Author:** Paulo Borini  
 **Last updated:** 2026-05-30
+
+### Novidades v0.1.3 — sub-agent forçado + ordem de validação
+
+Conserta falhas observadas no GF07 (plano sem template, validator+slice em paralelo, fallback inline no Cursor):
+
+- **Gate G7 — sub-agent obrigatório:** `plan_handoff` e `plan_execute` despachados como sub-agent (Agent tool), **nunca** no fio do orquestrador. `PLAN_*.md` **deve** conformar ao template da skill (§2 invariantes, §10 contratos, §11 riscos, §14 checklist, tasks T01..Tn) — plano sem template = G7 violado.
+- **Gate G8 — ordem fixa de validação:** `task-validator` roda **antes/dentro** do relatório do executor; `slice-review` roda **por último**, só após o executor retornar 100%. **Nunca em paralelo** — são funções distintas em série.
+- **Fase 0 sem brecha:** matou o fallback "implementação direta / contratos equivalentes inline". Host sem sub-agent despachável → **aborta**, ponto.
 
 ### Novidades v0.1.2 — pipeline orientado a artefato
 

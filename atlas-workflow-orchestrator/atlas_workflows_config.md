@@ -61,7 +61,8 @@ full:
     - plan_execute (com task-validator frio via sub-agent)  # artefato: diff + relatório validador (gate G3+G4)
     - slice_review (if --review flag)
   required_artifacts: [PRD_*.md, PLAN_*.md, code_diff, validator_report]
-  hard_gates: [G1, G2, G3, G4, G5, G6]
+  hard_gates: [G1, G2, G3, G4, G5, G6, G7, G8]
+  subagent_order: [prd_generator, plan_handoff, plan_execute → task-validator, slice_review (if --review)]
 
   decision_on_plan_gap:
     - option_a: volta_para_entrevista
@@ -82,7 +83,8 @@ direct:
     - plan_execute (sem handoff, task-validator frio via sub-agent)  # artefato: diff + relatório (gate G3+G4)
     - slice_review (if --review flag)
   required_artifacts: [PRD_*.md, code_diff, validator_report]
-  hard_gates: [G1, G3, G4, G5, G6]   # G2 não se aplica: direct não produz PLAN_*.md por design
+  hard_gates: [G1, G3, G4, G5, G6, G7, G8]   # G2 não se aplica: direct não produz PLAN_*.md por design
+  subagent_order: [prd_generator, plan_execute → task-validator, slice_review (if --review)]
   nota: "se o escopo exigir handoff formal, avisar usuário e sugerir full — nunca fabricar PLAN_*.md ad hoc"
 ```
 
@@ -171,6 +173,14 @@ hard_gates:
   G6_verified_status:
     rule: "✅ só após confirmar artefato em disco; artefato exigido ausente => status 'incomplete', nunca 'completed'"
     applies: output
+  G7_forced_subagent_dispatch:
+    rule: "plan_handoff e plan_execute despachados como sub-agent (Agent tool), NUNCA no fio do orquestrador; PLAN_*.md deve conformar ao template plan_handoff (§2 invariantes, §10 contratos, §11 riscos, §14 checklist, tasks T01..Tn)"
+    applies: [plan, execution]
+    rationale: "GF07 não disparou sub-agent p/ plano => plano sem template, terrível"
+  G8_validation_order:
+    rule: "task-validator ANTES (dentro/antes do relatório do executor); slice-review POR ÚLTIMO (só após executor 100%); JAMAIS em paralelo"
+    applies: [validation, review]
+    rationale: "GF07 rodou task-validator e slice-review concorrentes — funções e ordem distintas"
 ```
 
 ---
@@ -181,12 +191,18 @@ hard_gates:
 preflight:
   steps:
     - parse_args                # inválido/--help => mostra sintaxe e para
-    - resolve_skills_for_tool   # via mapeamento acima
-    - verify_invocability       # skills mapeadas existem como invocáveis neste host?
-    - declare_execution_plan    # modo, fases, artefatos esperados, gates aplicáveis
+    - resolve_skills_for_host   # claude-* | cursor-* | codex-* conforme host real
+    - verify_subagent_dispatch  # skills despacháveis via Agent tool neste host?
+    - declare_execution_plan    # modo, fases, ORDEM dos sub-agents, artefatos, gates
+  host_resolution:
+    - "host claude-* invocável  => usa claude-*"
+    - "host Cursor/Codex        => mapeia cursor-*/codex-* e despacha ESSAS como sub-agent"
   on_missing_skill:
-    action: "abortar e reportar — NUNCA emular skill inline"
-    rationale: "emulação inline é a falha-raiz que a v0.1.2 proíbe (full degradava para 'só coda')"
+    action: "ABORTAR e reportar"
+    forbidden_fallbacks:
+      - "implementação direta inline"
+      - "contratos equivalentes no fio do orquestrador"
+    rationale: "GF07 contornou via 'implementação direta com gates' — fallback inline proibido (G7)"
 ```
 
 ---

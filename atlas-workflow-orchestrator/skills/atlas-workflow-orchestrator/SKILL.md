@@ -66,16 +66,19 @@ Executar **antes** de iniciar o pipeline. Se qualquer item falhar, **parar e rep
 
 1. **Parse** dos argumentos `<tool> <mode> <input-type> [input] [flags]`. Se inválido ou `--help` → mostrar sintaxe e parar.
 2. **Resolver as skills** do `<tool>` via `atlas_workflows_config.md` (ex: `claude` → `claude-plan-handoff`, `claude-plan-execute`, etc.).
-3. **Verificar invocabilidade.** Confirmar que as skills mapeadas existem como skills invocáveis neste host (Skill tool disponível e a skill listada). Se uma skill exigida pelo modo **não** existir como invocável:
+3. **Verificar invocabilidade como sub-agent.** Confirmar que as skills mapeadas existem como **invocáveis via Skill tool E despacháveis via Agent tool** neste host. Resolução de host:
+   - host com skills `claude-*` invocáveis → usar `claude-*`;
+   - host Cursor/Codex → mapear para `cursor-*`/`codex-*` per config e usar **essas** como sub-agents;
+   - se **nenhuma** variante (claude-* nem equivalente do host) for despachável como sub-agent → **ABORTAR**.
    ```text
    ⛔ Pré-flight falhou
       Host: <host detectado>
       Skill exigida ausente: <nome>
-      Motivo: skill não está disponível como invocável neste host
-      Ação: rodar em host que tenha as skills do <tool>, ou trocar de <tool>
+      Motivo: skill não despachável como sub-agent neste host
+      Ação: rodar em host com as skills do <tool>, ou trocar de <tool>
    ```
-   **Não** emular a skill inline. Emulação inline é a falha-raiz que esta versão proíbe.
-4. **Declarar o plano de execução** (1 bloco curto): modo, sequência de fases, artefatos esperados por fase, gates duros aplicáveis. Só então iniciar a Fase 1.
+   **PROIBIDO o fallback "implementação direta" / "contratos equivalentes inline".** Não existe caminho onde o orquestrador faz plano ou código no próprio fio. Emulação inline e fallback direto são a falha-raiz que esta skill proíbe — se não há sub-agent, **para**. (Gate G7.)
+4. **Declarar o plano de execução** (1 bloco curto): modo, sequência de fases, **quais sub-agents serão despachados e em que ordem** (plan_handoff → execute[→task-validator] → slice-review), artefatos esperados, gates aplicáveis. Só então iniciar a Fase 1.
 
 ---
 
@@ -91,6 +94,8 @@ Regras inegociáveis. Violação = parar, não contornar.
 | G4 | **Validador frio é sub-agent separado.** O `task-validator` roda em contexto isolado (Agent tool), recebendo o git diff da slice + o plano. O executor **não** valida o próprio trabalho no mesmo contexto. | execução |
 | G5 | **Scan de ambiguidade determinístico e logado.** A decisão de pular a entrevista só é válida se o scan retornar **zero** padrões e esse resultado for registrado no output. Não existe "pular porque tenho certeza". `--interview` sempre força. | validação PRD |
 | G6 | **Status verificado, não auto-reportado.** O ✅ de cada item no output só pode ser marcado após confirmar o artefato em disco. Faltou artefato exigido pelo modo → status final `incomplete`, nunca `completed`. | output |
+| G7 | **Plano e execução rodam como sub-agent despachado (Agent tool), nunca no contexto do orquestrador.** As fases `plan_handoff` e `plan_execute` **devem** ser disparadas como sub-agents. Proibido produzir o plano ou escrever o código no próprio fio do orquestrador. Além disso, o `PLAN_*.md` **deve** conformar ao template da skill `plan_handoff` (§2 invariantes, §10 contratos, §11 riscos, §14 checklist, tasks numeradas T01..Tn). Plano sem essas seções = G7 violado → refazer via sub-agent. | plano + execução |
+| G8 | **Ordem fixa de validação: `task-validator` ANTES, `slice-review` POR ÚLTIMO. Nunca em paralelo.** O `task-validator` roda **dentro/antes** do relatório final do executor (alimenta o reparo, bloqueia o relatório). O `slice-review` (se `--review`) roda como fase final **separada**, só **depois** do executor retornar 100%. É proibido disparar `slice-review` enquanto o executor ou o `task-validator` ainda estão rodando. São funções distintas em sequência, jamais concorrentes. | validação + review |
 
 ---
 
@@ -104,10 +109,10 @@ Artefatos esperados (em ordem): `PRD_*.md` → (`PRD_*.md` atualizado) → `PLAN
 2. **Generate PRD** — invoca `claude-sprint-prd-generator`. **Gate G1:** confirmar `PRD_*.md` em disco antes de seguir.
 3. **Validate PRD** — roda o scan de ambiguidade (ver "Validação automática"). **Gate G5:** registrar quantos padrões foram encontrados.
 4. **Interview (condicional)** — se ambiguidades ≥ 1 **OU** `--interview` → invoca `claude-prd-interview`. Atualiza o `PRD_*.md` com as decisões. **Gate G1:** confirmar PRD atualizado.
-5. **Plan** — invoca `claude-plan-handoff`. **Gate G1 + G2:** confirmar `PLAN_*.md` em disco. **Nenhuma linha de código pode ter sido escrita até aqui.**
+5. **Plan** — despacha `claude-plan-handoff` **como sub-agent (Agent tool)** (Gate G7). **Gate G1 + G2:** confirmar `PLAN_*.md` em disco e que conforma ao template (§2/§10/§11/§14 + tasks T01..Tn). **Nenhuma linha de código pode ter sido escrita até aqui.**
 6. **Validate plan** — se há gaps → aplica a Lógica de decisão (A/B/C).
-7. **Execute** — invoca `claude-plan-execute`, lendo o `PLAN_*.md`. **Gate G4:** o `task-validator` roda como sub-agent frio (Agent tool) com o git diff + plano antes do relatório final.
-8. **Review (condicional)** — se `--review` → invoca `claude-slice-review`.
+7. **Execute** — despacha `claude-plan-execute` **como sub-agent (Agent tool)** lendo o `PLAN_*.md` (Gate G7). Dentro desse sub-agent, **antes do relatório final**, o executor dispara `claude-task-validator` como sub-agent frio separado com git diff + plano (Gate G4). Findings P1/P2 alimentam reparo limitado; só então o executor retorna. **Gate G8:** validador roda aqui, slice-review NÃO.
+8. **Review (condicional)** — **somente após o executor retornar 100%** (Gate G8) e se `--review` → despacha `claude-slice-review` como fase final separada. Proibido em paralelo com a Fase 7.
 9. **Output** — ledger verificado (ver "Output") + próximos passos.
 
 ### Direct mode
@@ -116,8 +121,8 @@ Artefatos esperados: `PRD_*.md` → (atualizado) → diff de código → relató
 
 1. Parse / Generate PRD (se necessário). **Gate G1.**
 2. Validate PRD → Interview (condicional). **Gate G5.**
-3. Execute — invoca `claude-plan-execute` direto a partir do PRD. **Gate G4** (validador frio).
-4. Review (condicional).
+3. Execute — despacha `claude-plan-execute` **como sub-agent** direto a partir do PRD (Gate G7). **Gate G4** (validador frio dentro do executor, antes do relatório).
+4. Review (condicional) — só após executor retornar 100% (Gate G8).
 5. Output (ledger verificado).
 
 > Se durante `direct` o escopo exigir um plano de handoff formal, **avise o usuário** e sugira `full` — não fabrique um `PLAN_*.md` ad hoc no meio de `direct`.
@@ -239,8 +244,25 @@ Se não houver config → usa defaults (Claude skills) e os gates desta SKILL.
 
 ---
 
+## Ordem de sub-agents (resumo executável)
+
+```
+orquestrador
+ ├─ Fase 0: pré-flight (resolve skills do host; sem sub-agent => ABORTA, nunca inline)
+ ├─ PRD        → sub-agent prd_generator        → PRD_*.md (G1)
+ ├─ scan       → determinístico (G5)            → entrevista se ≥1 ou --interview
+ ├─ PLANO      → sub-agent plan_handoff (G7)    → PLAN_*.md conforme template §2/§10/§11/§14 (G2)
+ ├─ EXECUÇÃO   → sub-agent plan_execute (G7)
+ │                └─ task-validator (sub-agent frio, G4) ANTES do relatório (G8)
+ │                   findings → reparo limitado → executor retorna
+ └─ REVIEW     → sub-agent slice_review (só se --review, SÓ após executor 100%, G8) — nunca paralelo
+```
+
+Regra de ouro: **um sub-agent por fase, em série**. `task-validator` ⟂ `slice-review` jamais coexistem.
+
 ## Changelog
 
+- **v0.1.3** — Força sub-agent. Gate G7 (plano e execução despachados como sub-agent, nunca inline; `PLAN_*.md` deve conformar ao template da skill `plan_handoff`). Gate G8 (ordem fixa: `task-validator` antes/dentro do executor, `slice-review` por último, nunca em paralelo). Fase 0 reforçada: matou o fallback "implementação direta / contratos equivalentes inline" — host sem sub-agent despachável **aborta**. Corrige falhas observadas no GF07 (plano sem template, validator+slice em paralelo, fallback inline no Cursor).
 - **v0.1.2** — Pipeline orientado a artefato. Adicionados: Fase 0 pré-flight (verifica invocabilidade, proíbe emulação inline), Gates duros G1–G6, scan de ambiguidade determinístico (mata o escape hatch "tenho certeza"), validador frio obrigatório como sub-agent, ledger verificado contra disco. `direct` explicitamente não produz `PLAN_*.md`.
 - **v0.1.1** — `/workflow` slash command.
 - **v0.1.0** — MVP (Claude skills).
