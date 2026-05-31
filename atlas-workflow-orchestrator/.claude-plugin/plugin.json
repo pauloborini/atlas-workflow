@@ -1,7 +1,7 @@
 {
   "name": "atlas-workflow-orchestrator",
-  "version": "0.1.5",
-  "description": "Orquestra pipelines completos de desenvolvimento de features no Atlas — PRD generation, validação, entrevista, planejamento e execução sob demanda. Pipeline orientado a artefato com gates duros (G1–G10): roteamento por <tool> (não por host), sub-agent obrigatório p/ plano e execução, dispatch blocking, orquestrador de mãos atadas, ordem fixa validator→review.",
+  "version": "0.1.7",
+  "description": "Orquestra pipelines completos de desenvolvimento de features no Atlas — PRD generation, validação, entrevista, planejamento e execução sob demanda. Pipeline orientado a artefato com gates duros (G1–G11): roteamento por <tool> (não por host), sub-agent obrigatório p/ plano e execução, dispatch blocking, orquestrador de mãos atadas, ordem fixa validator→review, full nunca termina no plano.",
   "author": {
     "name": "Paulo Borini"
   },
