@@ -1,6 +1,8 @@
 # Plan Contract
 
-Input plans must follow `codex-plan-handoff` and align with `PLAN_TEMPLATE.md` / `BOUNDARY_PRD_PLAN.md` (compact template, sections 1–8). Locate both via `Glob **/PLAN_TEMPLATE*.md` and `**/BOUNDARY_PRD_PLAN.md` in the active repo — do not rely on fixed vault paths.
+Input plans must follow `codex-plan-handoff` and align with `PLAN_TEMPLATE.md` / `BOUNDARY_PRD_PLAN.md` (compact template, sections 1–8). Locate both in the Atlas Workflow plugin bundle at `packages/templates/`; do not use workspace-local templates as primary sources.
+
+If `packages/templates/PLAN_TEMPLATE.md` or `packages/templates/BOUNDARY_PRD_PLAN.md` is absent from the bundle, stop with a clear `Template canônico ausente: <nome-do-template>` error. Do not fall back silently to old local, vault, or global copies.
 
 Legacy 15-section plans (handoff prompt, architecture impact block in PRD, etc.) are **not** the target format.
 
