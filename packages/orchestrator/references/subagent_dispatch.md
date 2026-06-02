@@ -4,7 +4,7 @@ Contrato host-agnóstico para Cursor, Codex e Claude Code.
 
 ## Regra central
 
-Cada fase mapeada a um `skill_id` em `atlas_workflows_config.md` roda em sub-agent foreground, blocking, um por vez.
+Cada fase mapeada a um `skill_id` pela configuração embutida do MCP roda em sub-agent foreground, blocking, um por vez.
 
 A primeira ação do sub-agent deve ser carregar o `SKILL.md` completo do `skill_id` resolvido. Depois disso ele executa a skill.
 
@@ -29,4 +29,4 @@ Equivalente aceito: mecanismo nativo do host que injete a skill completa no sub-
 2. Diretório local de skills do host.
 3. Workspace, apenas como fallback de descoberta.
 
-Se não encontrar a skill da família pedida por `<tool>`, abortar. Não trocar família. Não emular inline.
+Se não encontrar a skill `atlas-*` exigida, abortar. Não trocar por skill nativa ou variante antiga. Não emular inline.
