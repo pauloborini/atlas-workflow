@@ -47,7 +47,23 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 
 1. Adicionar entrada em `HOST_ADAPTERS` (`packages/mcp-server/server.js`).
 2. Adicionar regra de detecção em `detectHost` se houver env próprio.
-3. Adicionar linha nesta matriz.
+3. Adicionar linha na matriz de adapters.
 4. Registrar o subagente no formato nativo do host (ex.: `agents/<name>.md` ou equivalente).
 
 Sem tocar nas skills — elas já consomem o descritor.
+
+## Hosts-alvo (roadmap multi-host — S01 survey)
+
+Hosts em expansão (`feature/multihost-expansion`). Esta seção é **design input** para os adapters (S06/S07); só vira "Matriz de adapters" acima quando implementado e sincronizado com `HOST_ADAPTERS`. Detalhe completo + fontes: `PRD_S01_host_survey.md`.
+
+| Concern | `opencode` | `pi` (pi cli) |
+|---|---|---|
+| Disparo de subagente | nativo: `@<name>` ou auto por `description` | **`pi-subagents`** (extensão npm, obrigatória) |
+| Registro do subagente | `.opencode/agents/<name>.md` (frontmatter `description`, `mode: subagent`) | manifesto do package + frontmatter (`mcp:server-name` p/ tools) |
+| Skills | `.opencode/skills/` (`skills_use(name)`) | manifesto do package (Skills/Extensions) |
+| Config MCP (stdio) | `opencode.json` → `mcp.<name> = {type:"local", command:[…], enabled, environment}` | **`pi-mcp-adapter`** (extensão npm, obrigatória) → `mcp.json` |
+| Detecção | `ATLAS_HOST=opencode` explícito + presença de `.opencode/`/`opencode.json` (sem env distintivo garantido no subprocesso MCP) | `ATLAS_HOST=pi` explícito |
+| Deps externas obrigatórias | nenhuma (nativo compatível) | **`pi-mcp-adapter` + `pi-subagents`** (DEC-005); ausentes → preflight aborta (DEC-004) |
+| Transporte | stdio (`type:"local"`) | stdio (suportado pelo adapter) |
+
+**Conclusão do survey:** opencode é compatível nativamente (sem dep); pi exige 2 add-ons obrigatórios. Nenhum host-alvo exige HTTP/SSE → stdio único confirmado (DEC-006, S05 vira spike). Detecção por env não é garantida em opencode/pi → registry prioriza `ATLAS_HOST` explícito (tratado em S04).
