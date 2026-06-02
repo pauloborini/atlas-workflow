@@ -17,7 +17,7 @@ Continuation evidence found one more host-specific packaging issue:
 
 - Claude/Cursor plugin loaded from the packaged zip did not expose the bundled MCP server. The plugin had to be unpacked and the Claude manifest had to reference the MCP server with `${CLAUDE_PLUGIN_ROOT}/packages/mcp-server/server.js`.
 - Codex CLI usage limit later reset. The installed plugin initially did not expose Atlas MCP because the Codex `.mcp.json` launched the server from the consumer workspace. Adding `cwd: "."` to the packaged Codex MCP config made installed-plugin MCP autoexposure work.
-- A Codex full run then exposed a state-root mismatch: `cwd: "."` made `.atlas-run/` land in the plugin cache. The MCP stateful tools now accept `project_root`, preserving portable plugin startup while writing ledger and resolving relative artifacts against the consumer workspace.
+- A Codex full run then exposed a state-root mismatch: `cwd: "."` made state land in the plugin cache. The MCP stateful tools now accept `project_root`, preserving portable plugin startup while writing ledger and resolving relative artifacts against the consumer workspace.
 
 The full functional matrix is not green yet. Full/direct/interview-only runs and positive/negative cases per host still require real manual execution with run evidence. S14 remains blocked until that matrix is executed or a product decision explicitly accepts the remaining risk.
 
@@ -63,7 +63,7 @@ Legend: this table is the complete required coverage catalog. Values other than 
 | S13-R12 | Codex | MCP via explicit `mcp_servers.*` config + approval bypass | PASS | session `019e8350-13cf-7a01-b5b6-7edac9ac8269`; `atlas_ping` returned `status: alive`, `version: 0.2.0-dev`, 9 capabilities |
 | S13-R13 | Codex | installed plugin MCP autoexposure before `cwd` repair | FAIL | session `019e8350-b437-7e33-bbe0-51f3139dc1a8`; `tool_search` found 0 Atlas tools, MCP resources/templates empty |
 | S13-R14 | Codex | installed plugin MCP autoexposure after `cwd: "."` repair | PASS | session `019e8358-5be8-7d03-abe1-0dba0773b004`; `atlas_ping` returned `status: alive`, `version: 0.2.0-dev`, 9 capabilities |
-| S13-R15 | Codex | installed plugin full run with explicit `project_root` | PASS | session `019e8365-4e3b-7042-a1d6-abbe05e45f77`; final `CODEX_FULL_POSITIVE_PROJECT_ROOT_OK`; ledger created under `/private/tmp/atlas-s13-functional/.atlas-run/` |
+| S13-R15 | Codex | installed plugin full run with explicit `project_root` | PASS | session `019e8365-4e3b-7042-a1d6-abbe05e45f77`; final `CODEX_FULL_POSITIVE_PROJECT_ROOT_OK`; ledger created under the consumer workspace state directory |
 
 ## Repairs Applied
 
@@ -73,19 +73,19 @@ Legend: this table is the complete required coverage catalog. Values other than 
 | Codex MCP could not parse server responses | P1 | `packages/mcp-server/server.js` now emits newline-delimited JSON-RPC responses. Input parser accepts newline-delimited requests plus `Content-Length` frames with CRLF or LF-only headers. |
 | Claude/Cursor plugin did not expose MCP from packaged path | P1 | `plugin-manifests/claude/plugin.json` now resolves the MCP server through `${CLAUDE_PLUGIN_ROOT}/packages/mcp-server/server.js`. |
 | Codex installed plugin did not expose bundled MCP from consumer workspace | P1 | `build/build-plugins.sh` now emits `.mcp.json` with `cwd: "."`, so Codex launches `packages/mcp-server/server.js` relative to the installed plugin root. |
-| Codex installed plugin wrote ledger to plugin cache after `cwd: "."` | P1 | Stateful MCP tools now accept optional `project_root`; Codex host runs can keep portable MCP startup and still write `.atlas-run/` in the consumer workspace. |
+| Codex installed plugin wrote ledger to plugin cache after `cwd: "."` | P1 | Stateful MCP tools now accept optional `project_root`; Codex host runs can keep portable MCP startup and still write state in the consumer workspace. |
 
 ## Functional Matrix Evidence
 
 | ID | Host | Mode | Input type | Result | Evidence |
 |---|---|---|---|---|---|
-| S13-F01 | Claude | direct | existing PRD | PASS | `run_id=atlas-s13-qa-20260601`; `.atlas-run/atlas-s13-qa-20260601.json`; `qa-output.txt` contains `QA_OK`; G10/G1/G5/template_conformance passed |
-| S13-F02 | Claude | direct | ambiguous PRD | PASS expected block | `run_id=run-s13-qa-20260601-001`; `.atlas-run/run-s13-qa-20260601-001.json`; G5 blocked with 7 ambiguity matches; template_conformance blocked with 4 pendencies; no requested implementation executed |
-| S13-F03 | Cursor | interview-only | brainstorm | PARTIAL | `run_id=atlas-s13-cursor-interview-20260601`; live MCP `atlas_ping`, `atlas_preflight`, `atlas_lock_family`, `atlas_run_state`; final status `interview_completed_recommendations`; user confirmation still pending |
+| S13-F01 | Claude | direct | existing PRD | PASS | `run_id=atlas-s13-qa-20260601`; state ledger present; `qa-output.txt` contains `QA_OK`; G10/G1/G5/template_conformance passed |
+| S13-F02 | Claude | direct | ambiguous PRD | PASS expected block | `run_id=run-s13-qa-20260601-001`; state ledger present; G5 blocked with 7 ambiguity matches; template_conformance blocked with 4 pendencies; no requested implementation executed |
+| S13-F03 | Cursor | interview-only | brainstorm | PARTIAL | Legacy v0.2 evidence; family lock tool removed in v0.3; final status `interview_completed_recommendations`; user confirmation still pending |
 | S13-F04 | Claude | full | existing PRD | FAIL / timeout | no output after 4 minutes; process killed; no completed full ledger |
 | S13-F05 | Codex | interview-only | brainstorm | BLOCKED host dependency | initial Codex CLI returned usage limit: `try again at 5:39 AM`; no functional Codex run executed |
-| S13-F06 | Codex | interview-only | brainstorm | PASS MCP gates / no implementation | session `019e8359-079c-7953-b97b-9b871b2aa64c`; final `CODEX_PLUGIN_INTERVIEW_MCP_OK`; installed-plugin `atlas_ping`, `atlas_preflight`, `atlas_lock_family`, `atlas_run_state` passed; implementation_performed `false` |
-| S13-F07 | Codex | full | existing PRD | PASS | session `019e8365-4e3b-7042-a1d6-abbe05e45f77`; final `CODEX_FULL_POSITIVE_PROJECT_ROOT_OK`; `run_id=atlas-s13-codex-full-positive-project-root-20260601`; ledger at `/private/tmp/atlas-s13-functional/.atlas-run/atlas-s13-codex-full-positive-project-root-20260601.json`; `qa-output.txt` is exactly 5 bytes `QA_OK`; G10/G1/G5/template_conformance/G7/G11 expected block/G8 passed |
+| S13-F06 | Codex | interview-only | brainstorm | PASS MCP gates / no implementation | Legacy v0.2 evidence; family lock tool removed in v0.3; implementation_performed `false` |
+| S13-F07 | Codex | full | existing PRD | PASS | session `019e8365-4e3b-7042-a1d6-abbe05e45f77`; final `CODEX_FULL_POSITIVE_PROJECT_ROOT_OK`; `run_id=atlas-s13-codex-full-positive-project-root-20260601`; state ledger present; `qa-output.txt` is exactly 5 bytes `QA_OK`; G10/G1/G5/template_conformance/G7/G11 expected block/G8 passed |
 
 ## Direct MCP Contract Probes
 
