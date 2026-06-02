@@ -63,6 +63,10 @@ Campos retornados (DEC-007):
 
 **Gate `PREREQ` no `atlas_preflight`:** é a **primeira** verificação (precede versão/lock/modo). Mescla as flags do perfil do host com a disponibilidade real reportada em `host_capabilities` (override). Ex.: pi sem `pi-mcp-adapter`/`pi-subagents` → o adapter reporta `{"subagent_available":false}` → `status:"blocked"`, `gate:"PREREQ"`, `missing_prerequisites:[…]`, `next_action` acionável. Host qualificado passa direto para o gate G10. Nunca há fallback inline.
 
+### Transporte (S05 — spike, DEC-006)
+
+**stdio único.** Confirmado pelo survey S01: opencode usa `type:"local"` (stdio) e o `pi-mcp-adapter` suporta stdio (com fallback HTTP interno do próprio adapter, transparente ao Atlas). Nenhum host-alvo (claude/codex/cursor/opencode/pi/generic) exige HTTP/SSE no MCP do Atlas. Não há abstração de transporte (YAGNI). Ponto de extensão: se um host futuro exigir HTTP/SSE, o boot fica isolado em `startStdioLoop()` (`server.js`) — trocar/adicionar transporte é localizado, sem tocar a lógica de tools/gates.
+
 ### Fronteira portável vs host-específico
 
 - **Portável (vive no MCP, igual a todo host):** `plan_paths`, `state_backend`, `state_dir`, gates G1–G11, schema de state. Nunca depende de host.
