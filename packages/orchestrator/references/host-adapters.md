@@ -36,6 +36,36 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 
 `.cursor/plans/` e `.codex/plans/` são lidos com deprecation warning por 1 release; escrita só em `.atlas/plans/`.
 
+## Contrato `atlas_capabilities` (schema v2)
+
+Campos retornados (DEC-007):
+
+| Campo | Tipo | Significado |
+|---|---|---|
+| `host` / `host_label` / `detected_via` | string | host detectado e como |
+| `schema_version` | int | versão do contrato (atual: **2**) |
+| `subagent_dispatch` | obj | `{mechanism, example, registration}` — verbo nativo de dispatch |
+| `todo_tool` | string\|null | tool de todo nativa; `null` = seguir sem mirror (não-essencial) |
+| `hooks` | obj | `{supported, mechanism}` — suporte a hooks pré/pós tool |
+| `capabilities_flags` | obj | `{subagent_available, mcp_available, todo_available}` |
+| `prerequisites` | obj | `{essential:[…], non_essential:[…]}` — quais flags são hard-fail |
+| `plan_paths` / `state_backend` / `state_dir` | — | **portáveis** (iguais em todo host) |
+| `known_hosts` | string[] | hosts registrados em `HOST_ADAPTERS` |
+
+### Política de versionamento (`schema_version`)
+
+- **Aditivo** (campo novo opcional) → mantém compat; consumidores **devem ignorar campos desconhecidos**. (v1→v2 foi aditivo: `capabilities_flags`, `hooks`, `prerequisites`.)
+- **Remoção/renomeação/mudança de semântica** → bump + nota de migração + revisão das skills consumidoras.
+
+### Pré-requisitos de determinismo (DEC-004)
+
+`prerequisites.essential` (`subagent_available`, `mcp_available`) são **hard-fail**: host sem qualquer um é rejeitado no preflight, qualquer tamanho de tarefa, sem degradação/inline. `prerequisites.non_essential` (`todo_available`) apenas segue sem o recurso, registrando. O executor consome esse contrato no preflight (S09).
+
+### Fronteira portável vs host-específico
+
+- **Portável (vive no MCP, igual a todo host):** `plan_paths`, `state_backend`, `state_dir`, gates G1–G11, schema de state. Nunca depende de host.
+- **Host-específico (vive em `HOST_ADAPTERS` + packaging):** `subagent_dispatch`, `todo_tool`, `hooks`, `capabilities_flags`. Variação resolvida por dado, não por ramo de código.
+
 ## Como uma skill consome
 
 1. Chamar `atlas_capabilities` (sem args para autodetecção, ou `{host}` para forçar).
