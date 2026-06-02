@@ -22,21 +22,23 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 | env `CLAUDE_PLUGIN_ROOT` presente | `claude` |
 | env `CODEX_HOME` / `CODEX_PLUGIN_ROOT` | `codex` |
 | env `ATLAS_HOST=opencode` (injetado por `opencode.json`) | `opencode` |
+| env `ATLAS_HOST=pi` (injetado pela config do `pi-mcp-adapter`) | `pi` |
 | nenhum | `generic` |
 
 ## Matriz de adapters
 
-| Concern | `claude` (Claude Code) | `codex` (Codex App) | `opencode` | `generic` |
-|---------|------------------------|---------------------|------------|-----------|
-| Disparo de subagente | `Agent(subagent_type: "<name>", prompt: "<state_path>")` | invocar `$<skill-name>` com `<state_path>` | `@<name>` (ou auto) com `<state_path>` | subagente nativo do host, passando só `<state_path>` |
-| Registro do subagente | `agents/<name>.md` na raiz do plugin | `agents/openai.yaml` por skill (`allow_implicit_invocation`) | `.opencode/agents/<name>.md` (`mode: subagent`) | mecanismo nativo equivalente |
-| Todo nativo | `TodoWrite` | `tasks` | nenhum (segue sem mirror) | nenhum (segue sem mirror) |
-| Config MCP | `plugin.json` `mcpServers` | `.mcp.json` | `opencode.json` `mcp.<name>` (`type:"local"`, `environment.ATLAS_HOST=opencode`) | host MCP-capaz |
-| Estado de run | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) |
-| Escrita de plano | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` |
-| Leitura de plano (ordem) | `.atlas/plans/` → `.cursor/plans/` → `.codex/plans/` | idem | idem | idem |
+| Concern | `claude` (Claude Code) | `codex` (Codex App) | `opencode` | `pi` (pi cli) | `generic` |
+|---------|------------------------|---------------------|------------|---------------|-----------|
+| Disparo de subagente | `Agent(subagent_type: "<name>", prompt: "<state_path>")` | invocar `$<skill-name>` com `<state_path>` | `@<name>` (ou auto) com `<state_path>` | `pi-subagents` `@<name>` com `<state_path>` | subagente nativo do host, passando só `<state_path>` |
+| Registro do subagente | `agents/<name>.md` na raiz do plugin | `agents/openai.yaml` por skill (`allow_implicit_invocation`) | `.opencode/agents/<name>.md` (`mode: subagent`) | manifesto do package (`pi-subagents`); frontmatter `name`+`description` | mecanismo nativo equivalente |
+| Todo nativo | `TodoWrite` | `tasks` | nenhum (segue sem mirror) | nenhum (segue sem mirror) | nenhum (segue sem mirror) |
+| Config MCP | `plugin.json` `mcpServers` | `.mcp.json` | `opencode.json` `mcp.<name>` (`type:"local"`, `environment.ATLAS_HOST=opencode`) | `mcp.json` (`pi-mcp-adapter`; `env.ATLAS_HOST=pi`) | host MCP-capaz |
+| Deps externas obrigatórias | — | — | — | **`pi-mcp-adapter` + `pi-subagents`** (DEC-005) | — |
+| Estado de run | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) |
+| Escrita de plano | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` |
+| Leitura de plano (ordem) | `.atlas/plans/` → `.cursor/plans/` → `.codex/plans/` | idem | idem | idem | idem |
 
-`.cursor/plans/` e `.codex/plans/` são lidos com deprecation warning por 1 release; escrita só em `.atlas/plans/`. **opencode** instala via `.opencode/` + `opencode.json` (catálogo from-source em `hosts/opencode/`; bundle `dist/atlas-workflow-opencode.plugin`).
+`.cursor/plans/` e `.codex/plans/` são lidos com deprecation warning por 1 release; escrita só em `.atlas/plans/`. **opencode** instala via `.opencode/` + `opencode.json` (`hosts/opencode/`). **pi** instala via `mcp.json` + `agents/` + `skills/` (`hosts/pi/`) e exige as 2 deps obrigatórias; sem qualquer uma o preflight aborta (gate PREREQ).
 
 ## Contrato `atlas_capabilities` (schema v2)
 
@@ -90,18 +92,6 @@ Campos retornados (DEC-007):
 
 Sem tocar nas skills — elas já consomem o descritor.
 
-## Hosts-alvo (roadmap multi-host — S01 survey)
+## Status multi-host
 
-Hosts em expansão (`feature/multihost-expansion`). Esta seção é **design input** para o adapter `pi` (S07); só vira "Matriz de adapters" acima quando implementado e sincronizado com `HOST_ADAPTERS`. Detalhe completo + fontes: `PRD_S01_host_survey.md`. (opencode já implementado — S06.)
-
-| Concern | `pi` (pi cli) |
-|---|---|
-| Disparo de subagente | **`pi-subagents`** (extensão npm, obrigatória) |
-| Registro do subagente | manifesto do package + frontmatter (`mcp:server-name` p/ tools) |
-| Skills | manifesto do package (Skills/Extensions) |
-| Config MCP (stdio) | **`pi-mcp-adapter`** (extensão npm, obrigatória) → `mcp.json` |
-| Detecção | `ATLAS_HOST=pi` (injetado pela config MCP do adapter) |
-| Deps externas obrigatórias | **`pi-mcp-adapter` + `pi-subagents`** (DEC-005); ausentes → preflight aborta (DEC-004) |
-| Transporte | stdio (suportado pelo adapter) |
-
-**Conclusão do survey:** opencode compatível nativamente (implementado em S06); pi exige 2 add-ons obrigatórios (S07). Nenhum host-alvo exige HTTP/SSE → stdio único (DEC-006/S05).
+Todos os hosts-alvo do survey S01 estão implementados na matriz acima: `claude`, `codex`, `cursor` (carona no manifest claude), `opencode` (S06), `pi` (S07) e `generic`. Nenhum exige HTTP/SSE → stdio único (DEC-006/S05). Survey completo + fontes: `PRD_S01_host_survey.md`.
