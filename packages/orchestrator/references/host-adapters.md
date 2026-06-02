@@ -61,6 +61,8 @@ Campos retornados (DEC-007):
 
 `prerequisites.essential` (`subagent_available`, `mcp_available`) são **hard-fail**: host sem qualquer um é rejeitado no preflight, qualquer tamanho de tarefa, sem degradação/inline. `prerequisites.non_essential` (`todo_available`) apenas segue sem o recurso, registrando. O executor consome esse contrato no preflight (S09).
 
+**Gate `PREREQ` no `atlas_preflight`:** é a **primeira** verificação (precede versão/lock/modo). Mescla as flags do perfil do host com a disponibilidade real reportada em `host_capabilities` (override). Ex.: pi sem `pi-mcp-adapter`/`pi-subagents` → o adapter reporta `{"subagent_available":false}` → `status:"blocked"`, `gate:"PREREQ"`, `missing_prerequisites:[…]`, `next_action` acionável. Host qualificado passa direto para o gate G10. Nunca há fallback inline.
+
 ### Fronteira portável vs host-específico
 
 - **Portável (vive no MCP, igual a todo host):** `plan_paths`, `state_backend`, `state_dir`, gates G1–G11, schema de state. Nunca depende de host.
