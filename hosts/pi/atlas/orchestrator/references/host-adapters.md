@@ -92,6 +92,10 @@ Campos retornados (DEC-007):
 
 Sem tocar nas skills — elas já consomem o descritor.
 
+## Perfil `generic` (DEC-004)
+
+`generic` é o fallback para qualquer host MCP-capaz **com subagente nativo**. Não tem packaging próprio (não há bundle `generic`): o host usa seu mecanismo nativo de subagente + a config MCP do próprio host. O perfil **exige** subagente + MCP — `capabilities_flags {subagent:true, mcp:true}`. Host MCP-only **sem** subagente nativo fica **fora de escopo**: reportando `subagent_available:false` no preflight, o gate PREREQ aborta (não há degradação nem cold-review inline). Determinismo > alcance.
+
 ## Status multi-host
 
 Todos os hosts-alvo do survey S01 estão implementados na matriz acima: `claude`, `codex`, `cursor` (carona no manifest claude), `opencode` (S06), `pi` (S07) e `generic`. Nenhum exige HTTP/SSE → stdio único (DEC-006/S05). Survey completo + fontes: `PRD_S01_host_survey.md`.
