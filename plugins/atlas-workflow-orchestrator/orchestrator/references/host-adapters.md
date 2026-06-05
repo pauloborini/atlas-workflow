@@ -21,20 +21,60 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 | env `ATLAS_HOST` | o valor da env |
 | env `CLAUDE_PLUGIN_ROOT` presente | `claude` |
 | env `CODEX_HOME` / `CODEX_PLUGIN_ROOT` | `codex` |
+| env `ATLAS_HOST=opencode` (injetado por `opencode.json`) | `opencode` |
+| env `ATLAS_HOST=pi` (injetado pela config do `pi-mcp-adapter`) | `pi` |
 | nenhum | `generic` |
 
 ## Matriz de adapters
 
-| Concern | `claude` (Claude Code) | `codex` (Codex App) | `generic` |
-|---------|------------------------|---------------------|-----------|
-| Disparo de subagente | `Agent(subagent_type: "<name>", prompt: "<state_path>")` | invocar `$<skill-name>` com `<state_path>` | subagente nativo do host, passando só `<state_path>` |
-| Registro do subagente | `agents/<name>.md` na raiz do plugin | `agents/openai.yaml` por skill (`allow_implicit_invocation`) | mecanismo nativo equivalente |
-| Todo nativo | `TodoWrite` | `tasks` | nenhum (degradar sem mirror) |
-| Estado de run | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) |
-| Escrita de plano | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` |
-| Leitura de plano (ordem) | `.atlas/plans/` → `.cursor/plans/` → `.codex/plans/` | idem | idem |
+| Concern | `claude` (Claude Code) | `codex` (Codex App) | `opencode` | `pi` (pi cli) | `generic` |
+|---------|------------------------|---------------------|------------|---------------|-----------|
+| Disparo de subagente | `Agent(subagent_type: "<name>", prompt: "<state_path>")` | invocar `$<skill-name>` com `<state_path>` | `@<name>` (ou auto) com `<state_path>` | tool `subagent({ agent: "<name>", task: "<state_path>", context: "fresh" })` (pi-subagents) | subagente nativo do host, passando só `<state_path>` |
+| Registro do subagente | `agents/<name>.md` na raiz do plugin | `agents/openai.yaml` por skill (`allow_implicit_invocation`) | `.opencode/agents/<name>.md` (`mode: subagent`) | `.pi/agents/<name>.md` (pi-subagents; frontmatter `name`+`description`+`tools`) | mecanismo nativo equivalente |
+| Todo nativo | `TodoWrite` | `tasks` | `todowrite` | nenhum (segue sem mirror) | nenhum (segue sem mirror) |
+| Config MCP | `plugin.json` `mcpServers` | `.mcp.json` | `opencode.json` `mcp.<name>` (`type:"local"`, `environment.ATLAS_HOST=opencode`) | `.mcp.json` no root (`pi-mcp-adapter`; `env.ATLAS_HOST=pi`); tools chegam proxiadas/prefixadas `atlas_workflow_<tool>` | host MCP-capaz |
+| Deps externas obrigatórias | — | — | — | **`pi-mcp-adapter` + `pi-subagents`** (DEC-005) | — |
+| Estado de run | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) |
+| Escrita de plano | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` |
+| Leitura de plano (ordem) | `.atlas/plans/` → `.cursor/plans/` → `.codex/plans/` | idem | idem | idem | idem |
 
-`.cursor/plans/` e `.codex/plans/` são lidos com deprecation warning por 1 release; escrita só em `.atlas/plans/`.
+`.cursor/plans/` e `.codex/plans/` são lidos com deprecation warning por 1 release; escrita só em `.atlas/plans/`. **opencode** instala via `.opencode/` + `opencode.json` (`hosts/opencode/`). **pi** instala via `mcp.json` + `agents/` + `skills/` (`hosts/pi/`) e exige as 2 deps obrigatórias; sem qualquer uma o preflight aborta (gate PREREQ).
+
+## Contrato `atlas_capabilities` (schema v2)
+
+Campos retornados (DEC-007):
+
+| Campo | Tipo | Significado |
+|---|---|---|
+| `host` / `host_label` / `detected_via` | string | host detectado e como |
+| `schema_version` | int | versão do contrato (atual: **2**) |
+| `subagent_dispatch` | obj | `{mechanism, example, registration}` — verbo nativo de dispatch |
+| `todo_tool` | string\|null | tool de todo nativa; `null` = seguir sem mirror (não-essencial) |
+| `hooks` | obj | `{supported, mechanism}` — suporte a hooks pré/pós tool |
+| `capabilities_flags` | obj | `{subagent_available, mcp_available, todo_available}` |
+| `prerequisites` | obj | `{essential:[…], non_essential:[…]}` — quais flags são hard-fail |
+| `plan_paths` / `state_backend` / `state_dir` | — | **portáveis** (iguais em todo host) |
+| `known_hosts` | string[] | hosts registrados em `HOST_ADAPTERS` |
+
+### Política de versionamento (`schema_version`)
+
+- **Aditivo** (campo novo opcional) → mantém compat; consumidores **devem ignorar campos desconhecidos**. (v1→v2 foi aditivo: `capabilities_flags`, `hooks`, `prerequisites`.)
+- **Remoção/renomeação/mudança de semântica** → bump + nota de migração + revisão das skills consumidoras.
+
+### Pré-requisitos de determinismo (DEC-004)
+
+`prerequisites.essential` (`subagent_available`, `mcp_available`) são **hard-fail**: host sem qualquer um é rejeitado no preflight, qualquer tamanho de tarefa, sem degradação/inline. `prerequisites.non_essential` (`todo_available`) apenas segue sem o recurso, registrando. O executor consome esse contrato no preflight (S09).
+
+**Gate `PREREQ` no `atlas_preflight`:** é a **primeira** verificação (precede versão/lock/modo). Mescla as flags do perfil do host com a disponibilidade real reportada em `host_capabilities` (override). Ex.: pi sem `pi-mcp-adapter`/`pi-subagents` → o adapter reporta `{"subagent_available":false}` → `status:"blocked"`, `gate:"PREREQ"`, `missing_prerequisites:[…]`, `next_action` acionável. Host qualificado passa direto para o gate G10. Nunca há fallback inline.
+
+### Transporte (S05 — spike, DEC-006)
+
+**stdio único.** Confirmado pelo survey S01: opencode usa `type:"local"` (stdio) e o `pi-mcp-adapter` suporta stdio (com fallback HTTP interno do próprio adapter, transparente ao Atlas). Nenhum host-alvo (claude/codex/cursor/opencode/pi/generic) exige HTTP/SSE no MCP do Atlas. Não há abstração de transporte (YAGNI). Ponto de extensão: se um host futuro exigir HTTP/SSE, o boot fica isolado em `startStdioLoop()` (`server.js`) — trocar/adicionar transporte é localizado, sem tocar a lógica de tools/gates.
+
+### Fronteira portável vs host-específico
+
+- **Portável (vive no MCP, igual a todo host):** `plan_paths`, `state_backend`, `state_dir`, gates G1–G11, schema de state. Nunca depende de host.
+- **Host-específico (vive em `HOST_ADAPTERS` + packaging):** `subagent_dispatch`, `todo_tool`, `hooks`, `capabilities_flags`. Variação resolvida por dado, não por ramo de código.
 
 ## Como uma skill consome
 
@@ -47,7 +87,15 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 
 1. Adicionar entrada em `HOST_ADAPTERS` (`packages/mcp-server/server.js`).
 2. Adicionar regra de detecção em `detectHost` se houver env próprio.
-3. Adicionar linha nesta matriz.
+3. Adicionar linha na matriz de adapters.
 4. Registrar o subagente no formato nativo do host (ex.: `agents/<name>.md` ou equivalente).
 
 Sem tocar nas skills — elas já consomem o descritor.
+
+## Perfil `generic` (DEC-004)
+
+`generic` é o fallback para qualquer host MCP-capaz **com subagente nativo**. Não tem packaging próprio (não há bundle `generic`): o host usa seu mecanismo nativo de subagente + a config MCP do próprio host. O perfil **exige** subagente + MCP — `capabilities_flags {subagent:true, mcp:true}`. Host MCP-only **sem** subagente nativo fica **fora de escopo**: reportando `subagent_available:false` no preflight, o gate PREREQ aborta (não há degradação nem cold-review inline). Determinismo > alcance.
+
+## Status multi-host
+
+Todos os hosts-alvo do survey S01 estão implementados na matriz acima: `claude`, `codex`, `cursor` (carona no manifest claude), `opencode` (S06), `pi` (S07) e `generic`. Nenhum exige HTTP/SSE → stdio único (DEC-006/S05). Survey completo + fontes: `PRD_S01_host_survey.md`.
