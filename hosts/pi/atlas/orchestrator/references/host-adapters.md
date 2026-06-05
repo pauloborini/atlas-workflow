@@ -31,7 +31,7 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 |---------|------------------------|---------------------|------------|---------------|-----------|
 | Disparo de subagente | `Agent(subagent_type: "<name>", prompt: "<state_path>")` | invocar `$<skill-name>` com `<state_path>` | `@<name>` (ou auto) com `<state_path>` | tool `subagent({ agent: "<name>", task: "<state_path>", context: "fresh" })` (pi-subagents) | subagente nativo do host, passando só `<state_path>` |
 | Registro do subagente | `agents/<name>.md` na raiz do plugin | `agents/openai.yaml` por skill (`allow_implicit_invocation`) | `.opencode/agents/<name>.md` (`mode: subagent`) | `.pi/agents/<name>.md` (pi-subagents; frontmatter `name`+`description`+`tools`) | mecanismo nativo equivalente |
-| Todo nativo | `TodoWrite` | `tasks` | nenhum (segue sem mirror) | nenhum (segue sem mirror) | nenhum (segue sem mirror) |
+| Todo nativo | `TodoWrite` | `tasks` | `todowrite` | nenhum (segue sem mirror) | nenhum (segue sem mirror) |
 | Config MCP | `plugin.json` `mcpServers` | `.mcp.json` | `opencode.json` `mcp.<name>` (`type:"local"`, `environment.ATLAS_HOST=opencode`) | `.mcp.json` no root (`pi-mcp-adapter`; `env.ATLAS_HOST=pi`); tools chegam proxiadas/prefixadas `atlas_workflow_<tool>` | host MCP-capaz |
 | Deps externas obrigatórias | — | — | — | **`pi-mcp-adapter` + `pi-subagents`** (DEC-005) | — |
 | Estado de run | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) |
