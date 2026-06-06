@@ -47,8 +47,9 @@ Campos retornados (DEC-007):
 | Campo | Tipo | Significado |
 |---|---|---|
 | `host` / `host_label` / `detected_via` | string | host detectado e como |
-| `schema_version` | int | versão do contrato (atual: **2**) |
+| `schema_version` | int | versão do contrato (atual: **3**) |
 | `subagent_dispatch` | obj | `{mechanism, example, registration}` — verbo nativo de dispatch |
+| `validator_dispatch` | obj | `{topology, nested_subagent_available, dispatcher, repair_loop}` — quem despacha o validador frio |
 | `todo_tool` | string\|null | tool de todo nativa; `null` = seguir sem mirror (não-essencial) |
 | `hooks` | obj | `{supported, mechanism}` — suporte a hooks pré/pós tool |
 | `capabilities_flags` | obj | `{subagent_available, mcp_available, todo_available}` |
