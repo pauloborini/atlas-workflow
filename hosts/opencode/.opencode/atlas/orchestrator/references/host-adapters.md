@@ -29,8 +29,8 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 
 | Concern | `claude` (Claude Code) | `codex` (Codex App) | `opencode` | `pi` (pi cli) | `generic` |
 |---------|------------------------|---------------------|------------|---------------|-----------|
-| Disparo de subagente | `Agent(subagent_type: "<name>", prompt: "<state_path>")` | invocar `$<skill-name>` com `<state_path>` | `@<name>` (ou auto) com `<state_path>` | tool `subagent({ agent: "<name>", task: "<state_path>", context: "fresh" })` (pi-subagents) | subagente nativo do host, passando só `<state_path>` |
-| Registro do subagente | `agents/<name>.md` na raiz do plugin | `agents/openai.yaml` por skill (`allow_implicit_invocation`) | `.opencode/agents/<name>.md` (`mode: subagent`) | `.pi/agents/<name>.md` (pi-subagents; frontmatter `name`+`description`+`tools`) | mecanismo nativo equivalente |
+| Disparo de subagente | `Agent(subagent_type: "<name>", prompt: "<state_path>")` | `spawn_agent(agent_type: "<name>", items: [{ type: "text", text: "<state_path>" }])` | `@<name>` (ou auto) com `<state_path>` | tool `subagent({ agent: "<name>", task: "<state_path>", context: "fresh" })` (pi-subagents) | subagente nativo do host, passando só `<state_path>` |
+| Registro do subagente | `agents/<name>.md` na raiz do plugin | `.codex/agents/<name>.toml` (custom agent nativo; `developer_instructions` carrega o `SKILL.md`) | `.opencode/agents/<name>.md` (`mode: subagent`) | `.pi/agents/<name>.md` (pi-subagents; frontmatter `name`+`description`+`tools`) | mecanismo nativo equivalente |
 | Todo nativo | `TodoWrite` | `tasks` | `todowrite` | nenhum (segue sem mirror) | nenhum (segue sem mirror) |
 | Config MCP | `plugin.json` `mcpServers` | `.mcp.json` | `opencode.json` `mcp.<name>` (`type:"local"`, `environment.ATLAS_HOST=opencode`) | `.mcp.json` no root (`pi-mcp-adapter`; `env.ATLAS_HOST=pi`); tools chegam proxiadas/prefixadas `atlas_workflow_<tool>` | host MCP-capaz |
 | Deps externas obrigatórias | — | — | — | **`pi-mcp-adapter` + `pi-subagents`** (DEC-005) | — |
@@ -80,7 +80,7 @@ Campos retornados (DEC-007):
 
 1. Chamar `atlas_capabilities` (sem args para autodetecção, ou `{host}` para forçar).
 2. Ler `subagent_dispatch.mechanism` / `.example`, `todo_tool`, `plan_paths`.
-3. Executar o verbo nativo correspondente. Nunca hardcodar o nome do host na prosa da skill.
+3. Executar o verbo nativo correspondente. Nunca hardcodar o nome do host na prosa da skill. No Codex, `$<skill>` é ativação de skill in-context; execução/review usa custom agent nativo via `spawn_agent`.
 4. Se `todo_tool` for `null`, seguir sem mirror de todo (não inventar tool).
 
 ## Adicionar um host novo
