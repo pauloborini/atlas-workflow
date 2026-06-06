@@ -21,12 +21,12 @@ Near the top of the artifact:
 | § | Purpose |
 |---|---------|
 | 1 | Executive translation (`Tradução executiva`) — scope link to PRD, reference module, diffs vs mirror |
-| 2 | Execution invariants (derived from `PRD §5` — cite D* IDs, do not paste full table) |
+| 2 | Execution invariants (derived from `PRD §3` — cite D* IDs, do not paste full table) |
 | 3 | Pitfalls (anti-pattern → fix) |
 | 4 | State at sprint opening (3–6 bullets; not a global file inventory) |
 | 5 | Execution tasks `#### T01.` … `TNN` |
 | 6 | Technical contracts (only where PRD → code is ambiguous) |
-| 8 | Validation and validator checklist (derived from `PRD §10` + §2 invariants) |
+| 8 | Validation and validator checklist (derived from `PRD §6` + §2 invariants) |
 
 Section 7 (Slices) is required only when `execution_mode: orchestrated-per-slice`.
 
@@ -65,7 +65,7 @@ Paths may appear in **Referência** or **Validação local**; prefer module-leve
 | Technical contracts | §6 |
 | Slice boundaries | §7 (orchestrated mode) |
 | Validator checklist | §8 |
-| Business acceptance (when §8 is thin) | PRD §8–10 (read PRD path from plan header) |
+| Business acceptance (when §8 is thin) | PRD §4–6 (read PRD path from plan header) |
 
 ## Why this matters
 
