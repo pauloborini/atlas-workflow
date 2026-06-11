@@ -31,7 +31,8 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 |---------|------------------------|---------------------|------------|---------------|-----------|
 | Disparo de subagente | `Agent(subagent_type: "<name>", prompt: "<state_path>")` | `spawn_agent(agent_type: "<name>", items: [{ type: "text", text: "<state_path>" }])` | `@<name>` (ou auto) com `<state_path>` | tool `subagent({ agent: "<name>", task: "<state_path>", context: "fresh" })` (pi-subagents) | subagente nativo do host, passando só `<state_path>` |
 | Registro do subagente | `agents/<name>.md` na raiz do plugin | `.codex/agents/<name>.toml` (custom agent nativo; `developer_instructions` carrega o `SKILL.md`) | `.opencode/agents/<name>.md` (`mode: subagent`) | `.pi/agents/<name>.md` (pi-subagents; frontmatter `name`+`description`+`tools`; **`SKILL.md` canônico embutido no corpo** porque o pi não tem skill loader no sub-agente — fonte única segue `packages/skills/<name>/SKILL.md`, agente é cópia gerada por `build/gen-host-agent.mjs`) | mecanismo nativo equivalente |
-| Topologia do validador frio (G4) | **`nested`** — executor despacha o validator (filho) | **`sibling`** — executor escreve `state_path` e encerra; orquestrador despacha o validator (irmão). Codex atual não expõe `spawn_agent` a sub-agents → neto inviável | **`nested`** | **`nested`** | `host_defined` — segue o adapter |
+| Topologia do validador frio (G4) | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** |
+| Join síncrono (gate JOIN) | `self_evident` (`Agent()` bloqueante) | `self_evident` (confirmado em produção) | `self_evident` (`@<name>` bloqueante) | `must_report` (depende de `pi-subagents`; hard-fail sem report) | `must_report` (indeterminado; hard-fail sem report) |
 | Todo nativo | `TodoWrite` | `tasks` | `todowrite` | nenhum (segue sem mirror) | nenhum (segue sem mirror) |
 | Config MCP | `plugin.json` `mcpServers` | `.mcp.json` | `opencode.json` `mcp.<name>` (`type:"local"`, `environment.ATLAS_HOST=opencode`) | `.mcp.json` no root (`pi-mcp-adapter`; `env.ATLAS_HOST=pi`); tools chegam proxiadas/prefixadas `atlas_workflow_<tool>` | host MCP-capaz |
 | Deps externas obrigatórias | — | — | — | **`pi-mcp-adapter` + `pi-subagents`** (DEC-005) | — |
@@ -50,7 +51,7 @@ Campos retornados (DEC-007):
 | `host` / `host_label` / `detected_via` | string | host detectado e como |
 | `schema_version` | int | versão do contrato (atual: **3**) |
 | `subagent_dispatch` | obj | `{mechanism, example, registration}` — verbo nativo de dispatch |
-| `validator_dispatch` | obj | `{topology, nested_subagent_available, dispatcher, repair_loop}` — quem despacha o validador frio |
+| `validator_dispatch` | obj | `{dispatcher: 'orchestrator', join: {sync, confidence, mechanism}}` — topologia é sempre sibling; `join` declara a capability de join síncrono usada pelo gate JOIN |
 | `todo_tool` | string\|null | tool de todo nativa; `null` = seguir sem mirror (não-essencial) |
 | `hooks` | obj | `{supported, mechanism}` — suporte a hooks pré/pós tool |
 | `capabilities_flags` | obj | `{subagent_available, mcp_available, todo_available}` |
