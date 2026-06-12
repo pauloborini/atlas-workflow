@@ -49,7 +49,7 @@ Campos retornados (DEC-007):
 | Campo | Tipo | Significado |
 |---|---|---|
 | `host` / `host_label` / `detected_via` | string | host detectado e como |
-| `schema_version` | int | versão do contrato (atual: **3**) |
+| `schema_version` | int | versão do contrato (atual: **5**) |
 | `subagent_dispatch` | obj | `{mechanism, example, registration}` — verbo nativo de dispatch |
 | `validator_dispatch` | obj | `{dispatcher: 'orchestrator', join: {sync, confidence, mechanism}}` — topologia é sempre sibling; `join` declara a capability de join síncrono usada pelo gate JOIN |
 | `todo_tool` | string\|null | tool de todo nativa; `null` = seguir sem mirror (não-essencial) |
