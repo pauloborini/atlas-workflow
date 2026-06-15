@@ -42,7 +42,7 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 
 `.cursor/plans/` e `.codex/plans/` são lidos com deprecation warning por 1 release; escrita só em `.atlas/plans/`. **opencode** instala via `.opencode/` + `opencode.json` (`hosts/opencode/`). **pi** instala via `mcp.json` + `agents/` + `skills/` (`hosts/pi/`) e exige as 2 deps obrigatórias; sem qualquer uma o preflight aborta (gate PREREQ).
 
-## Contrato `atlas_capabilities` (schema v2)
+## Contrato `atlas_capabilities` (schema v5)
 
 Campos retornados (DEC-007):
 
