@@ -16,6 +16,16 @@ Proibido:
 
 Equivalente aceito: mecanismo nativo do host que injete a skill completa no sub-agent.
 
+## Codex
+
+No Codex, ativar `$atlas-task-validator` carrega skill no contexto atual, mas **não** cria isolamento frio. Para validação G4, o orquestrador deve chamar explicitamente o custom agent nativo:
+
+```text
+spawn_agent(agent_type: "atlas-task-validator", items: [{ type: "text", text: "<state_path>" }])
+```
+
+O registro desse agent vive em `.codex/agents/atlas-task-validator.toml` e é gerado por `build/gen-host-agent.mjs` com `model = "gpt-5.4"` e `model_reasoning_effort = "high"`. Se o host responder `unknown agent_type`, a fase bloqueia (`blocked`/fail-closed). Proibido fallback para `default`, `$atlas-task-validator`, execução inline ou validação no fio do orquestrador.
+
 ## Payload mínimo
 
 - `skill_id`
