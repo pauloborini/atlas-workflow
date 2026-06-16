@@ -30,7 +30,7 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 | Concern | `claude` (Claude Code) | `codex` (Codex App) | `opencode` | `pi` (pi cli) | `generic` |
 |---------|------------------------|---------------------|------------|---------------|-----------|
 | Disparo de subagente | `Agent(subagent_type: "<name>", prompt: "<state_path>")` | `spawn_agent(agent_type: "<name>", items: [{ type: "text", text: "<state_path>" }])` | `@<name>` (ou auto) com `<state_path>` | tool `subagent({ agent: "<name>", task: "<state_path>", context: "fresh" })` (pi-subagents) | subagente nativo do host, passando só `<state_path>` |
-| Registro do subagente | `agents/<name>.md` na raiz do plugin | `.codex/agents/<name>.toml` (custom agent nativo; `developer_instructions` carrega o `SKILL.md`) | `.opencode/agents/<name>.md` (`mode: subagent`) | `.pi/agents/<name>.md` (pi-subagents; frontmatter `name`+`description`+`tools`; **`SKILL.md` canônico embutido no corpo** porque o pi não tem skill loader no sub-agente — fonte única segue `packages/skills/<name>/SKILL.md`, agente é cópia gerada por `build/gen-host-agent.mjs`) | mecanismo nativo equivalente |
+| Registro do subagente | `agents/<name>.md` na raiz do plugin | `.codex/agents/<name>.toml` (custom agent nativo; `developer_instructions` carrega o `SKILL.md`; `atlas-task-validator` pinado em `model="gpt-5.4"` + `model_reasoning_effort="high"`) | `.opencode/agents/<name>.md` (`mode: subagent`) | `.pi/agents/<name>.md` (pi-subagents; frontmatter `name`+`description`+`tools`; **`SKILL.md` canônico embutido no corpo** porque o pi não tem skill loader no sub-agente — fonte única segue `packages/skills/<name>/SKILL.md`, agente é cópia gerada por `build/gen-host-agent.mjs`) | mecanismo nativo equivalente |
 | Topologia do validador frio (G4) | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** |
 | Join síncrono (gate JOIN) | `self_evident` (`Agent()` bloqueante) | `self_evident` (confirmado em produção) | `self_evident` (`@<name>` bloqueante) | `must_report` (depende de `pi-subagents`; hard-fail sem report) | `must_report` (indeterminado; hard-fail sem report) |
 | Todo nativo | `TodoWrite` | `tasks` | `todowrite` | nenhum (segue sem mirror) | nenhum (segue sem mirror) |
@@ -51,7 +51,7 @@ Campos retornados (DEC-007):
 | `host` / `host_label` / `detected_via` | string | host detectado e como |
 | `schema_version` | int | versão do contrato (atual: **5**) |
 | `subagent_dispatch` | obj | `{mechanism, example, registration}` — verbo nativo de dispatch |
-| `validator_dispatch` | obj | `{dispatcher: 'orchestrator', join: {sync, confidence, mechanism}}` — topologia é sempre sibling; `join` declara a capability de join síncrono usada pelo gate JOIN |
+| `validator_dispatch` | obj | `{dispatcher: 'orchestrator', required_agent_type, join: {sync, confidence, mechanism}}` — topologia é sempre sibling; `join` declara a capability de join síncrono usada pelo gate JOIN. No Codex, `required_agent_type` é `atlas-task-validator` e o registro nativo deve estar pinado em `model="gpt-5.4"` + `model_reasoning_effort="high"` |
 | `todo_tool` | string\|null | tool de todo nativa; `null` = seguir sem mirror (não-essencial) |
 | `hooks` | obj | `{supported, mechanism}` — suporte a hooks pré/pós tool |
 | `capabilities_flags` | obj | `{subagent_available, mcp_available, todo_available}` |
@@ -83,7 +83,7 @@ Campos retornados (DEC-007):
 
 1. Chamar `atlas_capabilities` (sem args para autodetecção, ou `{host}` para forçar).
 2. Ler `subagent_dispatch.mechanism` / `.example`, `todo_tool`, `plan_paths`.
-3. Executar o verbo nativo correspondente. Nunca hardcodar o nome do host na prosa da skill. No Codex, `$<skill>` é ativação de skill in-context; execução/review usa custom agent nativo via `spawn_agent`.
+3. Executar o verbo nativo correspondente. Nunca hardcodar o nome do host na prosa da skill. No Codex, `$<skill>` é ativação de skill in-context; execução/review usa custom agent nativo via `spawn_agent`. Para o validador frio no Codex, o orquestrador deve despachar explicitamente `spawn_agent(agent_type: "atlas-task-validator", items: [{ type: "text", text: "<state_path>" }])`; se esse agent type não estiver disponível, bloquear fail-closed em vez de usar `default`, `$atlas-task-validator` ou validação inline.
 4. Se `todo_tool` for `null`, seguir sem mirror de todo (não inventar tool).
 
 ## Adicionar um host novo
