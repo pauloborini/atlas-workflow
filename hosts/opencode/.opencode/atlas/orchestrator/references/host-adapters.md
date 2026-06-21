@@ -23,22 +23,23 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 | env `CODEX_HOME` / `CODEX_PLUGIN_ROOT` | `codex` |
 | env `ATLAS_HOST=opencode` (injetado por `opencode.json`) | `opencode` |
 | env `ATLAS_HOST=pi` (injetado pela config do `pi-mcp-adapter`) | `pi` |
+| env `ATLAS_HOST=antigravity` (injetado por `mcp_config.json`) | `antigravity` |
 | nenhum | `generic` |
 
 ## Matriz de adapters
 
-| Concern | `claude` (Claude Code) | `codex` (Codex App) | `opencode` | `pi` (pi cli) | `generic` |
-|---------|------------------------|---------------------|------------|---------------|-----------|
-| Disparo de subagente | `Agent(subagent_type: "<name>", prompt: "<state_path>")` | `spawn_agent(agent_type: "<name>", items: [{ type: "text", text: "<state_path>" }])` | `@<name>` (ou auto) com `<state_path>` | tool `subagent({ agent: "<name>", task: "<state_path>", context: "fresh" })` (pi-subagents) | subagente nativo do host, passando só `<state_path>` |
-| Registro do subagente | `agents/<name>.md` na raiz do plugin | `CODEX_HOME/agents/<name>.toml` via `init codex` (`.codex/agents/` no bundle é fonte gerada; custom agent nativo; `developer_instructions` carrega o `SKILL.md`; `atlas-task-validator` pinado em `model="gpt-5.4"` + `model_reasoning_effort="high"`) | `.opencode/agents/<name>.md` (`mode: subagent`) | `.pi/agents/<name>.md` (pi-subagents; frontmatter `name`+`description`+`tools`; **`SKILL.md` canônico embutido no corpo** porque o pi não tem skill loader no sub-agente — fonte única segue `packages/skills/<name>/SKILL.md`, agente é cópia gerada por `build/gen-host-agent.mjs`) | mecanismo nativo equivalente |
-| Topologia do validador frio (G4) | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** |
-| Join síncrono (gate JOIN) | `self_evident` (`Agent()` bloqueante) | `self_evident` (confirmado em produção) | `self_evident` (`@<name>` bloqueante) | `must_report` (depende de `pi-subagents`; hard-fail sem report) | `must_report` (indeterminado; hard-fail sem report) |
-| Todo nativo | `TodoWrite` | `tasks` | `todowrite` | nenhum (segue sem mirror) | nenhum (segue sem mirror) |
-| Config MCP | `plugin.json` `mcpServers` | `.mcp.json` | `opencode.json` `mcp.<name>` (`type:"local"`, `environment.ATLAS_HOST=opencode`) | `.mcp.json` no root (`pi-mcp-adapter`; `env.ATLAS_HOST=pi`); tools chegam proxiadas/prefixadas `atlas_workflow_<tool>` | host MCP-capaz |
-| Deps externas obrigatórias | — | — | — | **`pi-mcp-adapter` + `pi-subagents`** (DEC-005) | — |
-| Estado de run | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) |
-| Escrita de plano | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` |
-| Leitura de plano (ordem) | `.atlas/plans/` → `.cursor/plans/` → `.codex/plans/` | idem | idem | idem | idem |
+| Concern | `claude` (Claude Code) | `codex` (Codex App) | `opencode` | `pi` (pi cli) | `antigravity` (Gemini) | `generic` |
+|---------|------------------------|---------------------|------------|---------------|------------------------|-----------|
+| Disparo de subagente | `Agent(subagent_type: "<name>", prompt: "<state_path>")` | `spawn_agent(agent_type: "<name>", items: [{ type: "text", text: "<state_path>" }])` | `@<name>` (ou auto) com `<state_path>` | tool `subagent({ agent: "<name>", task: "<state_path>", context: "fresh" })` (pi-subagents) | `define_subagent` + `invoke_subagent` com `<state_path>` | subagente nativo do host, passando só `<state_path>` |
+| Registro do subagente | `agents/<name>.md` na raiz do plugin | `CODEX_HOME/agents/<name>.toml` via `init codex` (`.codex/agents/` no bundle é fonte gerada; custom agent nativo; `developer_instructions` carrega o `SKILL.md`; `atlas-task-validator` pinado em `model="gpt-5.4"` + `model_reasoning_effort="high"`) | `.opencode/agents/<name>.md` (`mode: subagent`) | `.pi/agents/<name>.md` (pi-subagents; frontmatter `name`+`description`+`tools`; **`SKILL.md` canônico embutido no corpo** porque o pi não tem skill loader no sub-agente — fonte única segue `packages/skills/<name>/SKILL.md`, agente é cópia gerada por `build/gen-host-agent.mjs`) | dinâmico via `define_subagent` da skill do orquestrador | mecanismo nativo equivalente |
+| Topologia do validador frio (G4) | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** |
+| Join síncrono (gate JOIN) | `self_evident` (`Agent()` bloqueante) | `self_evident` (confirmado em produção) | `self_evident` (`@<name>` bloqueante) | `must_report` (depende de `pi-subagents`; hard-fail sem report) | `self_evident` (`invoke_subagent` bloqueante) | `must_report` (indeterminado; hard-fail sem report) |
+| Todo nativo | `TodoWrite` | `tasks` | `todowrite` | nenhum (segue sem mirror) | nenhum (segue sem mirror) | nenhum (segue sem mirror) |
+| Config MCP | `plugin.json` `mcpServers` | `.mcp.json` | `opencode.json` `mcp.<name>` (`type:"local"`, `environment.ATLAS_HOST=opencode`) | `.mcp.json` no root (`pi-mcp-adapter`; `env.ATLAS_HOST=pi`); tools chegam proxiadas/prefixadas `atlas_workflow_<tool>` | `mcp_config.json` (`env.ATLAS_HOST=antigravity`) | host MCP-capaz |
+| Deps externas obrigatórias | — | — | — | **`pi-mcp-adapter` + `pi-subagents`** (DEC-005) | — | — |
+| Estado de run | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) |
+| Escrita de plano | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` |
+| Leitura de plano (ordem) | `.atlas/plans/` → `.cursor/plans/` → `.codex/plans/` | idem | idem | idem | idem | idem |
 
 `.cursor/plans/` e `.codex/plans/` são lidos com deprecation warning por 1 release; escrita só em `.atlas/plans/`. **opencode** instala via `.opencode/` + `opencode.json` (`hosts/opencode/`). **pi** instala via `mcp.json` + `agents/` + `skills/` (`hosts/pi/`) e exige as 2 deps obrigatórias; sem qualquer uma o preflight aborta (gate PREREQ).
 
