@@ -34,6 +34,14 @@ Use these lenses to find hidden bugs in the executed slice. Apply only the relev
 - Is retry or re-entry behavior still coherent after this slice?
 - Did generated files, localization keys, imports, routes, RPC signatures, or schemas match the verified repo convention?
 
+## Mecânica da mudança
+
+- Qual invariante cada guard, validação, cleanup, error path ou teste removido/substituído protegia, e onde ele foi restabelecido?
+- Callers e callees alterados ainda concordam sobre pré-condições, shapes de retorno, erros, timing e ordem?
+- A mudança corrige o componente proprietário do invariante ou adiciona um caso especial local frágil?
+- Algum novo problema de reuse, simplificação ou eficiência tem custo comportamental, operacional ou de manutenção concreto?
+- As instruções aplicáveis do repo expõem uma violação exata, atribuível a uma linha e com impacto concreto?
+
 ## Security and safety
 
 - Did the slice weaken permission, ownership, or visibility checks?
