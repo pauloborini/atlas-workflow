@@ -283,23 +283,57 @@ const HOST_ADAPTERS = {
   },
   antigravity: {
     label: 'Antigravity',
+    // Antigravity não tem skill loader nativo em subagentes — o SKILL.md completo
+    // DEVE ser embutido no Prompt de cada invoke_subagent (via define_subagent como
+    // system_prompt ou diretamente no Prompt). Nunca despachar subagente sem SKILL.md
+    // injetado, pois o subagente não carregará o contrato e o pipeline vai impasse.
+    //
+    // Fluxo para fases de execução/validação (executor, validator, repair, review):
+    //   1. define_subagent(name: "<atlas-exec>", system_prompt: "<SKILL.MD completo>")
+    //   2. invoke_subagent(Subagents: [{TypeName: "<atlas-exec>", Role: "<papel>",
+    //                                   Prompt: "<state_path ou plan_path>",
+    //                                   Workspace: "branch"}])
+    //   — invoke_subagent é BLOQUEANTE por design: não polling, não background.
+    //   — Workspace: "branch" garante isolamento de contexto (fronteira G4/G9).
+    //
+    // Fases documentais (PRD, entrevista, plano) NÃO usam subagente — o orquestrador
+    // conduz no fio principal; define_subagent não é chamado para essas fases.
     subagent_dispatch: {
-      mechanism: 'define_subagent(name, system_prompt) + invoke_subagent(Subagents)',
-      example: 'define_subagent(name: "atlas-task-validator", system_prompt: "<SKILL_MD>") e invoke_subagent(Subagents: [{TypeName: "atlas-task-validator", Role: "Validator", Prompt: "<state_path>"}])',
-      registration: 'Mapeamento de skills e agents via define_subagent dinâmico',
+      mechanism: 'define_subagent(name, system_prompt) + invoke_subagent(Subagents: [{TypeName, Role, Prompt, Workspace}])',
+      example: 'define_subagent(name: "atlas-task-validator", system_prompt: "<SKILL.MD completo do atlas-task-validator>") seguido de invoke_subagent(Subagents: [{TypeName: "atlas-task-validator", Role: "Validador frio", Prompt: "<state_path>", Workspace: "branch"}])',
+      registration: 'define_subagent dinâmico por sessão — o SKILL.md canônico é passado como system_prompt; sem pré-registro persistente',
+      // Sem loader nativo: o SKILL.md DEVE ser embutido no system_prompt do define_subagent.
+      // Não usar TypeName: "self" sem injetar o SKILL.md — o subagente herdaria o contexto
+      // do orquestrador e violaria o isolamento frio (G4/G9).
+      skill_loading: 'embed_in_system_prompt',
     },
     validator_dispatch: {
       dispatcher: 'orchestrator',
       join: {
         sync: 'self_evident',
         confidence: 'high',
-        mechanism: 'invoke_subagent bloqueante por design do host',
+        mechanism: 'invoke_subagent bloqueante por design do host — sem polling, sem callback',
       },
     },
-    question_prompt: { mechanism: 'notify_user', mode: 'structured', max_questions: 4, options_per_question: 3, persistence: 'prd_after_each_round' },
+    // question_prompt: usado pela atlas-prd-interview para fazer perguntas ao usuário.
+    // No Antigravity, usar ask_question (ferramenta nativa de perguntas interativas).
+    // IMPORTANTE — resume_after_interview: após receber respostas via ask_question,
+    // persistir no PRD e RETOMAR O PIPELINE IMEDIATAMENTE sem nova confirmação.
+    // Nunca aguardar input adicional do usuário entre fases — viola fire-and-continue.
+    question_prompt: {
+      mechanism: 'ask_question',
+      mode: 'structured',
+      max_questions: 4,
+      options_per_question: 3,
+      persistence: 'prd_after_each_round',
+      resume_after_interview: 'automatic',
+    },
     todo_tool: null,
     hooks: { supported: false, mechanism: null },
     capabilities_flags: { subagent_available: true, mcp_available: true, todo_available: false },
+    // self_evident: MCP nativo + invoke_subagent bloqueante provados pelo boot do host.
+    // Não exige host_capabilities report (igual claude/codex/opencode).
+    prereq_policy: 'self_evident',
   },
   generic: {
     label: 'Host genérico',
