@@ -335,6 +335,30 @@ const HOST_ADAPTERS = {
     // Não exige host_capabilities report (igual claude/codex/opencode).
     prereq_policy: 'self_evident',
   },
+  zcode: {
+    label: 'ZCode',
+    subagent_dispatch: {
+      // ZCode roda no Claude Agent SDK: Agent(subagent_type) nativo e bloqueante.
+      // Skills/agents do plugin vivem no bundle (.zcode-plugin) carregado pelo host.
+      mechanism: 'Agent(subagent_type)',
+      example: 'Agent(subagent_type: "atlas-task-validator", prompt: "<state_path>")',
+      registration: 'agents/<name>.md na raiz do plugin (descoberto via .zcode-plugin/plugin.json)',
+    },
+    validator_dispatch: {
+      dispatcher: 'orchestrator',
+      join: {
+        sync: 'self_evident',
+        confidence: 'presumed',
+        mechanism: 'Agent(subagent_type) bloqueante por design do host (Claude Agent SDK)',
+      },
+    },
+    question_prompt: { mechanism: 'AskUserQuestion', mode: 'structured', max_questions: 4, options_per_question: 3, persistence: 'prd_after_each_round' },
+    todo_tool: 'TodoWrite',
+    hooks: { supported: true, mechanism: '.zcode-plugin/plugin.json (hooks)' },
+    // ZCode é clone estrutural do Claude Code (Claude Agent SDK): subagente +
+    // MCP-local + TodoWrite nativos. Perfil self_evident — passa PREREQ/JOIN sem report.
+    capabilities_flags: { subagent_available: true, mcp_available: true, todo_available: true },
+  },
   generic: {
     label: 'Host genérico',
     subagent_dispatch: {
@@ -401,6 +425,10 @@ const HOST_NAMES = Object.keys(HOST_ADAPTERS);
 const HOST_DETECTORS = [
   { via: 'env:CLAUDE_PLUGIN_ROOT', detect: (env) => (env.CLAUDE_PLUGIN_ROOT ? 'claude' : null) },
   { via: 'env:CODEX', detect: (env) => (env.CODEX_HOME || env.CODEX_PLUGIN_ROOT ? 'codex' : null) },
+  // ZCode (app Electron no Claude Agent SDK) injeta ZCODE_PLUGIN_ROOT ao spawnar o
+  // subprocesso MCP do plugin (comprovado no bundle zcode.cjs: interpolação análoga a
+  // CLAUDE_PLUGIN_ROOT). Sinal próprio e determinístico — precedência sobre ATLAS_HOST.
+  { via: 'env:ZCODE_PLUGIN_ROOT', detect: (env) => (env.ZCODE_PLUGIN_ROOT ? 'zcode' : null) },
   // opencode/pi não expõem env distintivo garantido no subprocesso MCP (S01).
   // Detecção determinística: o packaging injeta ATLAS_HOST no env do MCP —
   //   opencode: opencode.json → mcp.<name>.environment.ATLAS_HOST = "opencode"
@@ -453,7 +481,7 @@ function capabilities(args = {}) {
 // do host com a disponibilidade real reportada pelo caller (`host_capabilities`).
 //
 // Política por host (`prereq_policy`):
-//   - 'self_evident' (claude/codex/opencode, default): runtime nativo. Flag essencial
+//   - 'self_evident' (claude/codex/opencode/zcode, default): runtime nativo. Flag essencial
 //     vem do report quando presente, senão do perfil (otimista justificado: MCP-vivo
 //     prova-se no boot; subagente é nativo do host/plugin instalado).
 //   - 'must_report' (pi/generic): essencial depende de dep externa (pi) ou de host
@@ -503,7 +531,7 @@ function checkPrerequisites(args = {}) {
 
 // Gate JOIN (DEC-SIB-003, SPEC_JOIN_CAPABILITY_S03 §3/§5). Espelha checkPrerequisites:
 // lê validator_dispatch.join do adapter e decide hard-fail por política.
-//   - join.sync === 'self_evident' (claude/codex/opencode): host nativo conhecido;
+//   - join.sync === 'self_evident' (claude/codex/opencode/zcode): host nativo conhecido;
 //     o runtime presume join disponível e NÃO exige report. confidence 'presumed'
 //     (claude/opencode) passa, mas é registrado para observabilidade (smoke S13).
 //   - join.sync === 'must_report' (pi/generic): fail-closed. Só passa se o caller

@@ -11,7 +11,7 @@ Tools nativas do cliente (`Agent()`, `TodoWrite`, `tasks`, `$skill`) vivem no ho
 1. **Runtime:** `atlas_capabilities` (MCP) — detecta host por env e retorna o descritor. Preferir sempre.
 2. **Estático:** esta tabela — fallback de leitura/documentação quando o MCP não está disponível.
 
-Os dois devem permanecer consistentes. O descritor em código vive em `packages/mcp-server/server.js` (`HOST_ADAPTERS`).
+Os dois devem permanecer consistentes. O descritor em código vive em `packages/mcp-server/server.js` (`HOST_ADAPTERS`). ZCode usa o mesmo formato de agentes que Claude (`.md` com frontmatter) por ser Claude Agent SDK compat.
 
 ## Detecção de host
 
@@ -21,6 +21,7 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 | env `ATLAS_HOST` | o valor da env |
 | env `CLAUDE_PLUGIN_ROOT` presente | `claude` |
 | env `CODEX_HOME` / `CODEX_PLUGIN_ROOT` | `codex` |
+| env `ZCODE_PLUGIN_ROOT` (injetado pelo `.zcode-plugin` do host) | `zcode` |
 | env `ATLAS_HOST=opencode` (injetado por `opencode.json`) | `opencode` |
 | env `ATLAS_HOST=pi` (injetado pela config do `pi-mcp-adapter`) | `pi` |
 | env `ATLAS_HOST=antigravity` (injetado por `mcp_config.json`) | `antigravity` |
@@ -28,15 +29,15 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 
 ## Matriz de adapters
 
-| Concern | `claude` (Claude Code) | `codex` (Codex App) | `opencode` | `pi` (pi cli) | `antigravity` (Gemini) | `generic` |
-|---------|------------------------|---------------------|------------|---------------|------------------------|-----------|
-| Disparo de subagente | `Agent(subagent_type: "<name>", prompt: "<state_path>")` | `spawn_agent(agent_type: "<name>", items: [{ type: "text", text: "<state_path>" }])` | `@<name>` (ou auto) com `<state_path>` | tool `subagent({ agent: "<name>", task: "<state_path>", context: "fresh" })` (pi-subagents) | `define_subagent` + `invoke_subagent` com `<state_path>` | subagente nativo do host, passando só `<state_path>` |
-| Registro do subagente | `agents/<name>.md` na raiz do plugin | `CODEX_HOME/agents/<name>.toml` via `init codex` (`.codex/agents/` no bundle é fonte gerada; custom agent nativo; `developer_instructions` carrega o `SKILL.md`; `atlas-task-validator` pinado em `model="gpt-5.4"` + `model_reasoning_effort="high"`) | `.opencode/agents/<name>.md` (`mode: subagent`) | `.pi/agents/<name>.md` (pi-subagents; frontmatter `name`+`description`+`tools`; **`SKILL.md` canônico embutido no corpo** porque o pi não tem skill loader no sub-agente — fonte única segue `packages/skills/<name>/SKILL.md`, agente é cópia gerada por `build/gen-host-agent.mjs`) | dinâmico via `define_subagent` da skill do orquestrador | mecanismo nativo equivalente |
-| Topologia do validador frio (G4) | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** |
-| Join síncrono (gate JOIN) | `self_evident` (`Agent()` bloqueante) | `self_evident` (confirmado em produção) | `self_evident` (`@<name>` bloqueante) | `must_report` (depende de `pi-subagents`; hard-fail sem report) | `self_evident` (`invoke_subagent` bloqueante) | `must_report` (indeterminado; hard-fail sem report) |
-| Todo nativo | `TodoWrite` | `tasks` | `todowrite` | nenhum (segue sem mirror) | nenhum (segue sem mirror) | nenhum (segue sem mirror) |
-| Config MCP | `plugin.json` `mcpServers` | `.mcp.json` | `opencode.json` `mcp.<name>` (`type:"local"`, `environment.ATLAS_HOST=opencode`) | `.mcp.json` no root (`pi-mcp-adapter`; `env.ATLAS_HOST=pi`); tools chegam proxiadas/prefixadas `atlas_workflow_<tool>` | `mcp_config.json` (`env.ATLAS_HOST=antigravity`) | host MCP-capaz |
-| Deps externas obrigatórias | — | — | — | **`pi-mcp-adapter` + `pi-subagents`** (DEC-005) | — | — |
+| Concern | `claude` (Claude Code) | `codex` (Codex App) | `opencode` | `pi` (pi cli) | `antigravity` (Gemini) | `zcode` (ZCode) | `generic` |
+|---------|------------------------|---------------------|------------|---------------|------------------------|-----------|-----------|
+| Disparo de subagente | `Agent(subagent_type: "<name>", prompt: "<state_path>")` | `spawn_agent(agent_type: "<name>", items: [{ type: "text", text: "<state_path>" }])` | `@<name>` (ou auto) com `<state_path>` | tool `subagent({ agent: "<name>", task: "<state_path>", context: "fresh" })` (pi-subagents) | `define_subagent` + `invoke_subagent` com `<state_path>` | `Agent(subagent_type: "<name>", prompt: "<state_path>")` | subagente nativo do host, passando só `<state_path>` |
+| Registro do subagente | `agents/<name>.md` na raiz do plugin | `CODEX_HOME/agents/<name>.toml` via `init codex` (`.codex/agents/` no bundle é fonte gerada; custom agent nativo; `developer_instructions` carrega o `SKILL.md`; `atlas-task-validator` pinado em `model="gpt-5.4"` + `model_reasoning_effort="high"`) | `.opencode/agents/<name>.md` (`mode: subagent`) | `.pi/agents/<name>.md` (pi-subagents; frontmatter `name`+`description`+`tools`; **`SKILL.md` canônico embutido no corpo** porque o pi não tem skill loader no sub-agente — fonte única segue `packages/skills/<name>/SKILL.md`, agente é cópia gerada por `build/gen-host-agent.mjs`) | dinâmico via `define_subagent` da skill do orquestrador | `agents/<name>.md` na raiz do plugin (.zcode-plugin) — mesmo formato claude (Claude Agent SDK) | mecanismo nativo equivalente |
+| Topologia do validador frio (G4) | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** |
+| Join síncrono (gate JOIN) | `self_evident` (`Agent()` bloqueante) | `self_evident` (confirmado em produção) | `self_evident` (`@<name>` bloqueante) | `must_report` (depende de `pi-subagents`; hard-fail sem report) | `self_evident` (`invoke_subagent` bloqueante) | `self_evident` (`Agent()` bloqueante; Claude Agent SDK) | `must_report` (indeterminado; hard-fail sem report) |
+| Todo nativo | `TodoWrite` | `tasks` | `todowrite` | nenhum (segue sem mirror) | nenhum (segue sem mirror) | `TodoWrite` | nenhum (segue sem mirror) |
+| Config MCP | `plugin.json` `mcpServers` | `.mcp.json` | `opencode.json` `mcp.<name>` (`type:"local"`, `environment.ATLAS_HOST=opencode`) | `.mcp.json` no root (`pi-mcp-adapter`; `env.ATLAS_HOST=pi`; tools chegam proxiadas/prefixadas `atlas_workflow_<tool>`) | `mcp_config.json` (`env.ATLAS_HOST=antigravity`) | `.zcode-plugin/plugin.json` `mcpServers` (stdio; `ZCODE_PLUGIN_ROOT` injetado pelo host) | host MCP-capaz |
+| Deps externas obrigatórias | — | — | — | **`pi-mcp-adapter` + `pi-subagents`** (DEC-005) | — | — | — |
 | Estado de run | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) | `atlas_run_state` (MCP) |
 | Escrita de plano | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` |
 | Leitura de plano (ordem) | `.atlas/plans/` → `.cursor/plans/` → `.codex/plans/` | idem | idem | idem | idem | idem |
@@ -92,7 +93,7 @@ Campos retornados (DEC-007):
 1. Adicionar entrada em `HOST_ADAPTERS` (`packages/mcp-server/server.js`).
 2. Adicionar regra de detecção em `detectHost` se houver env próprio.
 3. Adicionar linha na matriz de adapters.
-4. Registrar o subagente no formato nativo do host (ex.: `agents/<name>.md` ou equivalente).
+4. Registrar o subagente no formato nativo do host (ex.: `agents/<name>.md` ou equivalente). ZCode reusa o formato Claude (`agents/<name>.md`) — mesmo formato, sem geração extra.
 
 Sem tocar nas skills — elas já consomem o descritor.
 
@@ -102,4 +103,4 @@ Sem tocar nas skills — elas já consomem o descritor.
 
 ## Status multi-host
 
-Todos os hosts-alvo do survey S01 estão implementados na matriz acima: `claude`, `codex`, `cursor` (carona no manifest claude), `opencode` (S06), `pi` (S07) e `generic`. Nenhum exige HTTP/SSE → stdio único (DEC-006/S05). Survey completo + fontes: `PRD_S01_host_survey.md`.
+Todos os hosts-alvo do survey S01 estão implementados na matriz acima: `claude`, `codex`, `cursor` (carona no manifest claude), `opencode` (S06), `pi` (S07), `zcode` (Claude Agent SDK compat) e `generic`. Nenhum exige HTTP/SSE → stdio único (DEC-006/S05). Survey completo + fontes: `PRD_S01_host_survey.md`.
