@@ -33,4 +33,40 @@ Ativação é determinística: inspecione manifests no boundary e comandos realm
 - parsing/typing nas fronteiras e mutabilidade de defaults;
 - `pytest`, `ruff`, `mypy` ou equivalente apenas se declarados.
 
+## Go — `go.mod` ou comando Go real
+
+- context propagation/cancelamento, goroutine leak, data race e cleanup;
+- erros retornados sem swallow, wrapping útil e validação em fronteiras;
+- `go test`, `go vet`, `go test -race` e linters somente quando declarados/aplicáveis.
+
+## Rust — `Cargo.toml` ou comando Cargo real
+
+- ownership/lifetime usados para segurança real, não wrappers desnecessários;
+- `Result`/`Option` tratados sem `unwrap`/`expect` em fronteiras recuperáveis;
+- `cargo test`, `cargo check`, `cargo clippy` e `cargo fmt` somente quando declarados/aplicáveis.
+
+## Java/Kotlin — Maven/Gradle ou comando Java/Kotlin real
+
+- nullability, exceptions, resource cleanup e lifecycle de threads/coroutines;
+- boundaries de DTO/entity, serialização e validação de input;
+- `mvn test`, `gradle test`, linters/typecheck somente quando declarados.
+
+## Firebase — `firebase.json`, `.firebaserc` ou dependência Firebase real
+
+- regras/claims/authz, paths e ownership de dados;
+- falhas offline/retry, listeners/subscriptions e cleanup;
+- emuladores/deploy/checks somente quando declarados.
+
+## Supabase — dependência Supabase real
+
+- RLS/auth claims, schema/migrations, RPC/Edge Functions e storage policies;
+- sessão/token refresh, SSR/cookies quando aplicável e boundaries de dados;
+- CLI/migration/testes somente quando declarados.
+
+## REST/OpenAPI — OpenAPI/Swagger ou servidor/cliente HTTP real
+
+- compatibilidade request/response, status codes, paginação, erros e idempotência;
+- validação runtime nas bordas e divergência entre contrato e implementação;
+- geração/validação OpenAPI somente quando declarada.
+
 Perfis podem coexistir em monorepo. Regra de perfil nunca vira finding fora do boundary onde seu sinal foi ativado.
