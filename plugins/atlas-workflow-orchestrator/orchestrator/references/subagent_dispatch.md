@@ -24,7 +24,7 @@ No Codex, ativar `$atlas-task-validator` carrega skill no contexto atual, mas **
 spawn_agent(agent_type: "atlas-task-validator", items: [{ type: "text", text: "<state_path>" }])
 ```
 
-O registro ativo desse agent vive em `CODEX_HOME/agents/atlas-task-validator.toml` após `npx github:pauloborini/atlas-workflow init codex`; o bundle mantém `.codex/agents/` como fonte gerada. O arquivo é gerado por `build/gen-host-agent.mjs` com `model = "gpt-5.4"` e `model_reasoning_effort = "high"`. Se o host responder `unknown agent_type`, a fase bloqueia (`blocked`/fail-closed). Proibido fallback para `default`, `$atlas-task-validator`, execução inline ou validação no fio do orquestrador.
+O registro ativo desse agent vive em `CODEX_HOME/agents/atlas-task-validator.toml` após `npx github:pauloborini/atlas-workflow init codex`; o bundle mantém `.codex/agents/` como fonte gerada. O arquivo é gerado por `build/gen-host-agent.mjs` sem pin de modelo, herdando o default suportado pela conta/host. Se o host responder `unknown agent_type` ou rejeitar o despacho, a fase bloqueia (`blocked`/fail-closed). Proibido fallback para `default`, `$atlas-task-validator`, execução inline ou validação no fio do orquestrador.
 
 ## ZCode
 
