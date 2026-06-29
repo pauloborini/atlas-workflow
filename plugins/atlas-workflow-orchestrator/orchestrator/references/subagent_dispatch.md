@@ -28,13 +28,15 @@ O registro ativo desse agent vive em `CODEX_HOME/agents/atlas-task-validator.tom
 
 ## ZCode
 
-ZCode é Claude Agent SDK compat (clone estrutural do Claude Code). O mecanismo de sub-agent é o **mesmo** do Claude:
+ZCode implementa o Claude Agent SDK, mas o harness pode restringir `subagent_type` a um enum fechado (ex.: apenas `"Explore"`, que é read-only). O mecanismo de sub-agent quando disponível é o **mesmo** do Claude:
 
 ```text
 Agent(subagent_type: "atlas-task-validator", prompt: "<state_path>")
 ```
 
-O registro ativo do agent vive em `agents/<name>.md` na raiz do plugin (mesmo formato Claude, sem geração extra), descoberto pelo host via `.zcode-plugin/plugin.json` (skills + agents do plugin). O ZCode injeta `ZCODE_PLUGIN_ROOT` no env do subprocesso MCP (verificado no bundle `zcode.cjs`). Após `npx github:pauloborini/atlas-workflow init zcode`, o catálogo `hosts/zcode/` é copiado para `~/.zcode/cli/plugins/cache/zcode-plugins-official/atlas-workflow-orchestrator/<version>/` e ativado no app via `/plugins enable atlas-workflow-orchestrator`. ZCode é `self_evident` (passa PREREQ/JOIN sem report), sem dependências externas.
+O registro ativo do agent vive em `agents/<name>.md` na raiz do plugin (mesmo formato Claude, sem geração extra), descoberto pelo host via `.zcode-plugin/plugin.json` (skills + agents do plugin). Registro em `agents/<name>.md` é necessário mas **não suficiente** — o harness precisa aceitar aquele `subagent_type` no schema da tool `Agent`. O ZCode injeta `ZCODE_PLUGIN_ROOT` no env do subprocesso MCP (verificado no bundle `zcode.cjs`). Após `npx github:pauloborini/atlas-workflow init zcode`, o catálogo `hosts/zcode/` é copiado para `~/.zcode/cli/plugins/cache/zcode-plugins-official/atlas-workflow-orchestrator/<version>/` e ativado no app via `/plugins enable atlas-workflow-orchestrator`.
+
+**Atenção:** O perfil ZCode declara `dispatch_capability: 'unknown'` (DEC-008). Para modos que exigem mutação (`full`, `direct`, `execute`), o orquestrador deve verificar se o subagente tem Write/Edit/Bash e reportar `host_capabilities.dispatch_mutable: true` no `atlas_preflight`. Sem esse report, o gate DISPATCH bloqueia no preflight (fail-fast <1s). Modos read-only (`audit`, `interview-only`) passam sem report. ZCode é `self_evident` para PREREQ/JOIN, sem dependências externas.
 
 ## Payload mínimo
 

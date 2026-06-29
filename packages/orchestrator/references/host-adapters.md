@@ -35,6 +35,7 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 | Registro do subagente | `agents/<name>.md` na raiz do plugin | `CODEX_HOME/agents/<name>.toml` via `init codex` (`.codex/agents/` no bundle é fonte gerada; custom agent nativo; `developer_instructions` carrega o `SKILL.md`; `atlas-task-validator` pinado em `model="gpt-5.4"` + `model_reasoning_effort="high"`) | `.opencode/agents/<name>.md` (`mode: subagent`) | `.pi/agents/<name>.md` (pi-subagents; frontmatter `name`+`description`+`tools`; **`SKILL.md` canônico embutido no corpo** porque o pi não tem skill loader no sub-agente — fonte única segue `packages/skills/<name>/SKILL.md`, agente é cópia gerada por `build/gen-host-agent.mjs`) | dinâmico via `define_subagent` da skill do orquestrador | `agents/<name>.md` na raiz do plugin (.zcode-plugin) — mesmo formato claude (Claude Agent SDK) | mecanismo nativo equivalente |
 | Topologia do validador frio (G4) | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** | **`sibling`** |
 | Join síncrono (gate JOIN) | `self_evident` (`Agent()` bloqueante) | `self_evident` (confirmado em produção) | `self_evident` (`@<name>` bloqueante) | `must_report` (depende de `pi-subagents`; hard-fail sem report) | `self_evident` (`invoke_subagent` bloqueante) | `self_evident` (`Agent()` bloqueante; Claude Agent SDK) | `must_report` (indeterminado; hard-fail sem report) |
+| Capacidade de mutação (gate DISPATCH, DEC-008) | `mutable` (Write/Edit/Bash verificados em produção) | `mutable` (verificado em produção) | `mutable` (verificado em produção) | `unknown` (depende de `pi-subagents`; exige `dispatch_mutable` no report) | `unknown` (não verificado; exige `dispatch_mutable` no report) | `unknown` (harness pode restringir `subagent_type`; exige `dispatch_mutable` no report) | `unknown` (exige `dispatch_mutable` no report) |
 | Todo nativo | `TodoWrite` | `tasks` | `todowrite` | nenhum (segue sem mirror) | nenhum (segue sem mirror) | `TodoWrite` | nenhum (segue sem mirror) |
 | Config MCP | `plugin.json` `mcpServers` | `.mcp.json` | `opencode.json` `mcp.<name>` (`type:"local"`, `environment.ATLAS_HOST=opencode`) | `.mcp.json` no root (`pi-mcp-adapter`; `env.ATLAS_HOST=pi`; tools chegam proxiadas/prefixadas `atlas_workflow_<tool>`) | `mcp_config.json` (`env.ATLAS_HOST=antigravity`) | `.zcode-plugin/plugin.json` `mcpServers` (stdio; `ZCODE_PLUGIN_ROOT` injetado pelo host) | host MCP-capaz |
 | Deps externas obrigatórias | — | — | — | **`pi-mcp-adapter` + `pi-subagents`** (DEC-005) | — | — | — |
@@ -57,6 +58,7 @@ Campos retornados (DEC-007):
 | `todo_tool` | string\|null | tool de todo nativa; `null` = seguir sem mirror (não-essencial) |
 | `hooks` | obj | `{supported, mechanism}` — suporte a hooks pré/pós tool |
 | `capabilities_flags` | obj | `{subagent_available, mcp_available, todo_available}` |
+| `dispatch_capability` | string | `'mutable'` \| `'unknown'` \| `'readonly'` — capacidade de mutação do subagente (Write/Edit/Bash). `'mutable'` = verificado em produção; `'unknown'` = exige `host_capabilities.dispatch_mutable: true` no preflight para modos de execução (DEC-008). Modos read-only (`audit`, `interview-only`) passam sem verificação. |
 | `prerequisites` | obj | `{essential:[…], non_essential:[…]}` — quais flags são hard-fail |
 | `plan_paths` / `state_backend` / `state_dir` | — | **portáveis** (iguais em todo host) |
 | `known_hosts` | string[] | hosts registrados em `HOST_ADAPTERS` |
@@ -70,7 +72,9 @@ Campos retornados (DEC-007):
 
 `prerequisites.essential` (`subagent_available`, `mcp_available`) são **hard-fail**: host sem qualquer um é rejeitado no preflight, qualquer tamanho de tarefa, sem degradação/inline. `prerequisites.non_essential` (`todo_available`) apenas segue sem o recurso, registrando. O executor consome esse contrato no preflight (S09).
 
-**Gate `PREREQ` no `atlas_preflight`:** é a **primeira** verificação (precede versão/lock/modo). Mescla as flags do perfil do host com a disponibilidade real reportada em `host_capabilities` (override). Ex.: pi sem `pi-mcp-adapter`/`pi-subagents` → o adapter reporta `{"subagent_available":false}` → `status:"blocked"`, `gate:"PREREQ"`, `missing_prerequisites:[…]`, `next_action` acionável. Host qualificado passa direto para o gate G10. Nunca há fallback inline.
+**Gate `PREREQ` no `atlas_preflight`:** é a **primeira** verificação (precede versão/lock/modo). Mescla as flags do perfil do host com a disponibilidade real reportada em `host_capabilities` (override). Ex.: pi sem `pi-mcp-adapter`/`pi-subagents` → o adapter reporta `{"subagent_available":false}` → `status:"blocked"`, `gate:"PREREQ"`, `missing_prerequisites:[…]`, `next_action` acionável. Host qualificado passa para JOIN, depois DISPATCH (DEC-008), depois VERSION_DRIFT, LOCK_CONFLICT e G10. Nunca há fallback inline.
+
+**Gate `DISPATCH` (DEC-008):** terceira verificação (após PREREQ e JOIN). Valida se o subagente do host tem capacidade de mutação (Write/Edit/Bash) quando o modo exige execução de código (`full`, `direct`, `execute`). Hosts `mutable` (claude/codex/opencode) passam direto. Hosts `unknown` (zcode/antigravity/pi/generic) exigem `host_capabilities.dispatch_mutable: true`. Modos read-only (`audit`, `interview-only`) passam sem verificação.
 
 ### Transporte (S05 — spike, DEC-006)
 
