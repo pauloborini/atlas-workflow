@@ -78,7 +78,7 @@ Campos retornados (DEC-007):
 
 ### Transporte (S05 — spike, DEC-006)
 
-**stdio único.** Confirmado pelo survey S01: opencode usa `type:"local"` (stdio) e o `pi-mcp-adapter` suporta stdio (com fallback HTTP interno do próprio adapter, transparente ao Atlas). Nenhum host-alvo (claude/codex/cursor/opencode/pi/generic) exige HTTP/SSE no MCP do Atlas. Não há abstração de transporte (YAGNI). Ponto de extensão: se um host futuro exigir HTTP/SSE, o boot fica isolado em `startStdioLoop()` (`server.js`) — trocar/adicionar transporte é localizado, sem tocar a lógica de tools/gates.
+**stdio único.** Confirmado pelo survey S01 e pelos adapters atuais: opencode usa `type:"local"` (stdio), `pi-mcp-adapter` suporta stdio (com fallback HTTP interno do próprio adapter, transparente ao Atlas), Antigravity usa `mcp_config.json` stdio e ZCode usa `.zcode-plugin/plugin.json` stdio. Nenhum host-alvo (claude/codex/cursor/antigravity/zcode/opencode/pi/generic) exige HTTP/SSE no MCP do Atlas. Não há abstração de transporte (YAGNI). Ponto de extensão: se um host futuro exigir HTTP/SSE, o boot fica isolado em `startStdioLoop()` (`server.js`) — trocar/adicionar transporte é localizado, sem tocar a lógica de tools/gates.
 
 ### Fronteira portável vs host-específico
 
@@ -107,4 +107,4 @@ Sem tocar nas skills — elas já consomem o descritor.
 
 ## Status multi-host
 
-Todos os hosts-alvo do survey S01 estão implementados na matriz acima: `claude`, `codex`, `cursor` (carona no manifest claude), `opencode` (S06), `pi` (S07), `zcode` (Claude Agent SDK compat) e `generic`. Nenhum exige HTTP/SSE → stdio único (DEC-006/S05). Survey completo + fontes: `PRD_S01_host_survey.md`.
+Todos os hosts-alvo do survey S01 e expansões posteriores estão implementados na matriz acima: `claude`, `codex`, `cursor` (carona no manifest claude), `antigravity`, `zcode` (Claude Agent SDK compat), `opencode` (S06), `pi` (S07) e `generic`. Nenhum exige HTTP/SSE → stdio único (DEC-006/S05). Survey completo + fontes: `PRD_S01_host_survey.md`.
