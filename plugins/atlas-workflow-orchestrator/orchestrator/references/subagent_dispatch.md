@@ -28,15 +28,31 @@ O registro ativo desse agent vive em `CODEX_HOME/agents/atlas-task-validator.tom
 
 ## ZCode
 
-ZCode implementa o Claude Agent SDK, mas o harness pode restringir `subagent_type` a um enum fechado (ex.: apenas `"Explore"`, que é read-only). O mecanismo de sub-agent quando disponível é o **mesmo** do Claude:
+ZCode implementa o Claude Agent SDK. O mecanismo de sub-agent nominal é o **mesmo** do Claude:
 
 ```text
 Agent(subagent_type: "atlas-task-validator", prompt: "<state_path>")
 ```
 
-O registro ativo do agent vive em `agents/<name>.md` na raiz do plugin (mesmo formato Claude, sem geração extra), descoberto pelo host via `.zcode-plugin/plugin.json` (skills + agents do plugin). Registro em `agents/<name>.md` é necessário mas **não suficiente** — o harness precisa aceitar aquele `subagent_type` no schema da tool `Agent`. O ZCode injeta `ZCODE_PLUGIN_ROOT` no env do subprocesso MCP (verificado no bundle `zcode.cjs`). Após `npx github:pauloborini/atlas-workflow init zcode`, o catálogo `hosts/zcode/` é copiado para `~/.zcode/cli/plugins/cache/zcode-plugins-official/atlas-workflow-orchestrator/<version>/` e ativado no app via `/plugins enable atlas-workflow-orchestrator`.
+O registro ativo do agent vive em `agents/<name>.md` na raiz do plugin (mesmo formato Claude, sem geração extra), descoberto pelo host via `.zcode-plugin/plugin.json`. O ZCode injeta `ZCODE_PLUGIN_ROOT` no env do subprocesso MCP (verificado no bundle `zcode.cjs`). Após `npx github:pauloborini/atlas-workflow init zcode`, o catálogo `hosts/zcode/` é copiado para `~/.zcode/cli/plugins/cache/zcode-plugins-official/atlas-workflow-orchestrator/<version>/` e ativado no app via `/plugins enable atlas-workflow-orchestrator`.
 
-**Atenção:** O perfil ZCode declara `dispatch_capability: 'unknown'` (DEC-008). Para modos que exigem mutação (`full`, `direct`, `execute`), o orquestrador deve verificar se o subagente tem Write/Edit/Bash e reportar `host_capabilities.dispatch_mutable: true` no `atlas_preflight`. Sem esse report, o gate DISPATCH bloqueia no preflight (fail-fast <1s). Modos read-only (`audit`, `interview-only`) passam sem report. ZCode é `self_evident` para PREREQ/JOIN, sem dependências externas.
+### Limitação do host: sub-agentes de plugin não herdam MCP
+
+**Confirmado empiricamente (v0.10.1, 2026-06):** sub-agentes despachados via `subagent_type: "atlas-*"` (plugin) **não** recebem as conexões MCP do processo pai — mesmo com `mcp__plugin_atlas-workflow-orchestrator_atlas-workflow` declarado explicitamente no frontmatter `tools:`. Qualquer chamada MCP de dentro do subagente falha com `Required MCP server is not connected`. O subagente nativo `general-purpose` herda MCP + tools nativas normalmente. Bug do host (ZCode), não do plugin Atlas.
+
+### Workaround: fallback para `general-purpose`
+
+O adapter zcode declara `subagent_dispatch.fallback.enabled: true`. Quando ativo, o orquestrador despacha o subagente **nativo** em vez do nominal:
+
+```text
+Agent(subagent_type: "general-purpose", prompt: <prompt_template>)
+```
+
+O `prompt_template` (de `atlas_capabilities.subagent_dispatch.fallback`) aponta o subagente para ler `agents/<name>.md` (o `atlas-<exec>` resolvido) como system prompt, repassando o `<input>` (`state_path` para validator/repair/review, `task` para executores). O contrato continua sendo a fonte única canônica `agents/<name>.md` — só muda quem carrega (subagente nativo em vez do de plugin).
+
+**Por que o Gate G4/sibling permanece válido:** ainda é um subagente irmão isolado, despachado blocking. O `dispatch_token` e `challenge_response` continuam sendo ecoados **do output do irmão** (R19/R20) — nunca fabricados pelo orquestrador. O `lock_validator(start→complete)` opera no mesmo ciclo de vida. Mudou o `subagent_type` (nativo vs plugin), não a topologia.
+
+**Atenção:** O perfil ZCode declara `dispatch_capability: 'unknown'` (DEC-008). Para modos que exigem mutação (`full`, `direct`, `execute`), o orquestrador deve verificar se o subagente tem Write/Edit/Bash e reportar `host_capabilities.dispatch_mutable: true` no `atlas_preflight`. Sem esse report, o gate DISPATCH bloqueia no preflight (fail-fast <1s). O fallback não altera este gate — `general-purpose` é mutável, mas o orquestrador ainda precisa reportar. Modos read-only (`audit`, `interview-only`) passam sem report. ZCode é `self_evident` para PREREQ/JOIN, sem dependências externas.
 
 ## Payload mínimo
 
