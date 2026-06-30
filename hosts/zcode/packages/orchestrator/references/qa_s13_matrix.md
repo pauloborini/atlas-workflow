@@ -59,10 +59,10 @@ Legend: this table is the complete required coverage catalog. Values other than 
 | S13-R08 | Codex | plugin install after repair | PASS | cache path under `.codex/plugins/cache/atlas-s13/.../0.2.0-dev` |
 | S13-R09 | Codex | plugin smoke after install | PASS | session `019e815e-e821-7b42-9805-b1b725cc2a43`, result `CODEX_PLUGIN_OK_3` |
 | S13-R10 | Claude | plugin MCP from zip | FAIL | `MCP_NOT_AVAILABLE` |
-| S13-R11 | Claude | plugin MCP from unpacked dir after path repair | PASS | `atlas_ping` returned `status: alive`, `version: 0.2.0-dev`, 9 capabilities |
-| S13-R12 | Codex | MCP via explicit `mcp_servers.*` config + approval bypass | PASS | session `019e8350-13cf-7a01-b5b6-7edac9ac8269`; `atlas_ping` returned `status: alive`, `version: 0.2.0-dev`, 9 capabilities |
+| S13-R11 | Claude | plugin MCP from unpacked dir after path repair | PASS | `talos_ping` returned `status: alive`, `version: 0.2.0-dev`, 9 capabilities |
+| S13-R12 | Codex | MCP via explicit `mcp_servers.*` config + approval bypass | PASS | session `019e8350-13cf-7a01-b5b6-7edac9ac8269`; `talos_ping` returned `status: alive`, `version: 0.2.0-dev`, 9 capabilities |
 | S13-R13 | Codex | installed plugin MCP autoexposure before `cwd` repair | FAIL | session `019e8350-b437-7e33-bbe0-51f3139dc1a8`; `tool_search` found 0 Atlas tools, MCP resources/templates empty |
-| S13-R14 | Codex | installed plugin MCP autoexposure after `cwd: "."` repair | PASS | session `019e8358-5be8-7d03-abe1-0dba0773b004`; `atlas_ping` returned `status: alive`, `version: 0.2.0-dev`, 9 capabilities |
+| S13-R14 | Codex | installed plugin MCP autoexposure after `cwd: "."` repair | PASS | session `019e8358-5be8-7d03-abe1-0dba0773b004`; `talos_ping` returned `status: alive`, `version: 0.2.0-dev`, 9 capabilities |
 | S13-R15 | Codex | installed plugin full run with explicit `project_root` | PASS | session `019e8365-4e3b-7042-a1d6-abbe05e45f77`; final `CODEX_FULL_POSITIVE_PROJECT_ROOT_OK`; ledger created under the consumer workspace state directory |
 
 ## Repairs Applied
@@ -93,7 +93,7 @@ These probes exercise the MCP contract directly. They are not substitutes for ho
 
 | ID | Scope | Result | Evidence |
 |---|---|---|---|
-| S13-MCP-FULL-01 | full flow gate sequence | PASS contract / not host QA | fresh workspace `/private/tmp/atlas-s13-full-probe-clean2`; `run_id=atlas-s13-full-mcp-probe-clean2-20260601`; `atlas_preflight`, PRD G1/G5/template_conformance, PLAN G1/template_conformance, `atlas_lock_dispatch` plan_handoff start/complete, `atlas_assert_after_plan` expected block for `completed_without_execute`, and plan_execute start/complete with validator `passed` all returned expected statuses |
+| S13-MCP-FULL-01 | full flow gate sequence | PASS contract / not host QA | fresh workspace `/private/tmp/atlas-s13-full-probe-clean2`; `run_id=atlas-s13-full-mcp-probe-clean2-20260601`; `talos_preflight`, PRD G1/G5/template_conformance, PLAN G1/template_conformance, `talos_lock_dispatch` plan_handoff start/complete, `talos_assert_after_plan` expected block for `completed_without_execute`, and plan_execute start/complete with validator `passed` all returned expected statuses |
 
 ## Checks
 
@@ -114,7 +114,7 @@ These probes exercise the MCP contract directly. They are not substitutes for ho
 | Cursor interview-only workflow with MCP ledger | PARTIAL |
 | Claude full workflow | FAIL / timeout |
 | Codex functional workflow | PARTIAL / full matrix incomplete |
-| Codex explicit MCP config `atlas_ping` with approval bypass | PASS |
+| Codex explicit MCP config `talos_ping` with approval bypass | PASS |
 | Codex installed plugin MCP autoexposure | PASS |
 | Codex installed plugin interview-only MCP gates | PASS |
 | Codex installed plugin full workflow with `project_root` ledger | PASS |
@@ -135,7 +135,7 @@ Reason: PRD S13 requires the critical subset to cover at least one positive and 
 
 Required next action:
 
-1. Re-run full mode with bounded timeout and verify `PLAN_*.md`, `atlas_assert_after_plan`, execution and validator evidence.
+1. Re-run full mode with bounded timeout and verify `PLAN_*.md`, `talos_assert_after_plan`, execution and validator evidence.
 2. Complete Cursor interview with explicit user answer or mark it as intentionally waived by product.
 3. Execute at least one positive and one negative functional workflow run per host.
 4. Reclassify go/no-go only after the critical subset is green or explicitly waived.
