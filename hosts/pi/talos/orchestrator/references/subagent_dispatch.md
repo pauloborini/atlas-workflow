@@ -34,7 +34,7 @@ ZCode implementa o Claude Agent SDK. O mecanismo de sub-agent nominal é o **mes
 Agent(subagent_type: "talos-task-validator", prompt: "<state_path>")
 ```
 
-O registro ativo do agent vive em `agents/<name>.md` na raiz do plugin (mesmo formato Claude, sem geração extra), descoberto pelo host via `.zcode-plugin/plugin.json`. O ZCode injeta `ZCODE_PLUGIN_ROOT` no env do subprocesso MCP (verificado no bundle `zcode.cjs`). Após `npx github:pauloborini/talos init zcode`, o catálogo `hosts/zcode/` é copiado para `~/.zcode/cli/plugins/cache/zcode-plugins-official/talos/<version>/` e ativado no app via `/plugins enable talos`.
+O registro ativo do agent vive em `agents/<name>.md` na raiz do plugin (mesmo formato Claude, sem geração extra), descoberto pelo host via `.zcode-plugin/plugin.json`. O ZCode injeta `ZCODE_PLUGIN_ROOT` no env do subprocesso MCP (verificado no bundle `zcode.cjs`). Após `npx github:pauloborini/talos init zcode`, o catálogo `hosts/zcode/` é copiado para `~/.zcode/cli/plugins/cache/zcode-plugins-official/talos/<version>/` e habilitado em `~/.zcode/cli/config.json` (`enabledPlugins`).
 
 ### Limitação do host: sub-agentes de plugin não herdam MCP
 
