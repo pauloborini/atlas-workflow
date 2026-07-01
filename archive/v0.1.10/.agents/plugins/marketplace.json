@@ -1,14 +1,14 @@
 {
-  "name": "atlas-workflow",
+  "name": "talos",
   "interface": {
-    "displayName": "Atlas Workflow"
+    "displayName": "Talos"
   },
   "plugins": [
     {
-      "name": "atlas-workflow-orchestrator",
+      "name": "talos",
       "source": {
         "source": "local",
-        "path": "./plugins/atlas-workflow-orchestrator"
+        "path": "./plugins/talos"
       },
       "policy": {
         "installation": "AVAILABLE",
