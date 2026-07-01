@@ -1,6 +1,6 @@
 # Adapters de host
 
-Fonte canônica do conhecimento host-específico do Atlas. As skills são host-agnósticas: em runtime devem consultar a tool MCP `talos_capabilities` e usar o descritor retornado. Este documento é a referência estática equivalente (e o que o `talos_capabilities` materializa em código no MCP server).
+Fonte canônica do conhecimento host-específico do Talos. As skills são host-agnósticas: em runtime devem consultar a tool MCP `talos_capabilities` e usar o descritor retornado. Este documento é a referência estática equivalente (e o que o `talos_capabilities` materializa em código no MCP server).
 
 ## Por que existe
 
@@ -18,13 +18,13 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 | Sinal | Host |
 |-------|------|
 | arg `host` explícito na chamada | o valor passado |
-| env `ATLAS_HOST` | o valor da env |
+| env `TALOS_HOST` | o valor da env |
 | env `CLAUDE_PLUGIN_ROOT` presente | `claude` |
 | env `CODEX_HOME` / `CODEX_PLUGIN_ROOT` | `codex` |
 | env `ZCODE_PLUGIN_ROOT` (injetado pelo `.zcode-plugin` do host) | `zcode` |
-| env `ATLAS_HOST=opencode` (injetado por `opencode.json`) | `opencode` |
-| env `ATLAS_HOST=pi` (injetado pela config do `pi-mcp-adapter`) | `pi` |
-| env `ATLAS_HOST=antigravity` (injetado por `mcp_config.json`) | `antigravity` |
+| env `TALOS_HOST=opencode` (injetado por `opencode.json`) | `opencode` |
+| env `TALOS_HOST=pi` (injetado pela config do `pi-mcp-adapter`) | `pi` |
+| env `TALOS_HOST=antigravity` (injetado por `mcp_config.json`) | `antigravity` |
 | nenhum | `generic` |
 
 ## Matriz de adapters
@@ -38,13 +38,13 @@ Os dois devem permanecer consistentes. O descritor em código vive em `packages/
 | Join síncrono (gate JOIN) | `self_evident` (`Agent()` bloqueante) | `self_evident` (confirmado em produção) | `self_evident` (`@<name>` bloqueante) | `must_report` (depende de `pi-subagents`; hard-fail sem report) | `self_evident` (`invoke_subagent` bloqueante) | `self_evident` (`Agent()` bloqueante; Claude Agent SDK) | `must_report` (indeterminado; hard-fail sem report) |
 | Capacidade de mutação (gate DISPATCH, DEC-008) | `mutable` (Write/Edit/Bash verificados em produção) | `mutable` (verificado em produção) | `mutable` (verificado em produção) | `unknown` (depende de `pi-subagents`; exige `dispatch_mutable` no report) | `unknown` (não verificado; exige `dispatch_mutable` no report) | `unknown` (harness pode restringir `subagent_type`; exige `dispatch_mutable` no report) | `unknown` (exige `dispatch_mutable` no report) |
 | Todo nativo | `TodoWrite` | `tasks` | `todowrite` | nenhum (segue sem mirror) | nenhum (segue sem mirror) | `TodoWrite` | nenhum (segue sem mirror) |
-| Config MCP | `plugin.json` `mcpServers` | `.mcp.json` | `opencode.json` `mcp.<name>` (`type:"local"`, `environment.ATLAS_HOST=opencode`) | `.mcp.json` no root (`pi-mcp-adapter`; `env.ATLAS_HOST=pi`; tools chegam proxiadas/prefixadas `talos_<tool>`) | `mcp_config.json` (`env.ATLAS_HOST=antigravity`) | `.zcode-plugin/plugin.json` `mcpServers` (stdio; `ZCODE_PLUGIN_ROOT` injetado pelo host) | host MCP-capaz |
+| Config MCP | `plugin.json` `mcpServers` | `.mcp.json` | `opencode.json` `mcp.<name>` (`type:"local"`, `environment.TALOS_HOST=opencode`) | `.mcp.json` no root (`pi-mcp-adapter`; `env.TALOS_HOST=pi`; tools chegam proxiadas/prefixadas `talos_<tool>`) | `mcp_config.json` (`env.TALOS_HOST=antigravity`) | `.zcode-plugin/plugin.json` `mcpServers` (stdio; `ZCODE_PLUGIN_ROOT` injetado pelo host) | host MCP-capaz |
 | Deps externas obrigatórias | — | — | — | **`pi-mcp-adapter` + `pi-subagents`** (DEC-005) | — | — | — |
 | Estado de run | `talos_run_state` (MCP) | `talos_run_state` (MCP) | `talos_run_state` (MCP) | `talos_run_state` (MCP) | `talos_run_state` (MCP) | `talos_run_state` (MCP) |
-| Escrita de plano | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` | `.atlas/plans/` |
-| Leitura de plano (ordem) | `.atlas/plans/` → `.cursor/plans/` → `.codex/plans/` | idem | idem | idem | idem | idem |
+| Escrita de plano | `.talos/plans/` | `.talos/plans/` | `.talos/plans/` | `.talos/plans/` | `.talos/plans/` | `.talos/plans/` |
+| Leitura de plano (ordem) | `.talos/plans/` → `.cursor/plans/` → `.codex/plans/` | idem | idem | idem | idem | idem |
 
-`.cursor/plans/` e `.codex/plans/` são lidos com deprecation warning por 1 release; escrita só em `.atlas/plans/`. **opencode** instala via `.opencode/` + `opencode.json` (`hosts/opencode/`). **pi** instala via `mcp.json` + `agents/` + `skills/` (`hosts/pi/`) e exige as 2 deps obrigatórias; sem qualquer uma o preflight aborta (gate PREREQ).
+`.cursor/plans/` e `.codex/plans/` são lidos com deprecation warning por 1 release; escrita só em `.talos/plans/`. **opencode** instala via `.opencode/` + `opencode.json` (`hosts/opencode/`). **pi** instala via `mcp.json` + `agents/` + `skills/` (`hosts/pi/`) e exige as 2 deps obrigatórias; sem qualquer uma o preflight aborta (gate PREREQ).
 
 ## Contrato `talos_capabilities` (schema v5)
 
@@ -79,7 +79,7 @@ Campos retornados (DEC-007):
 
 ### Transporte (S05 — spike, DEC-006)
 
-**stdio único.** Confirmado pelo survey S01 e pelos adapters atuais: opencode usa `type:"local"` (stdio), `pi-mcp-adapter` suporta stdio (com fallback HTTP interno do próprio adapter, transparente ao Atlas), Antigravity usa `mcp_config.json` stdio e ZCode usa `.zcode-plugin/plugin.json` stdio. Nenhum host-alvo (claude/codex/cursor/antigravity/zcode/opencode/pi/generic) exige HTTP/SSE no MCP do Atlas. Não há abstração de transporte (YAGNI). Ponto de extensão: se um host futuro exigir HTTP/SSE, o boot fica isolado em `startStdioLoop()` (`server.js`) — trocar/adicionar transporte é localizado, sem tocar a lógica de tools/gates.
+**stdio único.** Confirmado pelo survey S01 e pelos adapters atuais: opencode usa `type:"local"` (stdio), `pi-mcp-adapter` suporta stdio (com fallback HTTP interno do próprio adapter, transparente ao Talos), Antigravity usa `mcp_config.json` stdio e ZCode usa `.zcode-plugin/plugin.json` stdio. Nenhum host-alvo (claude/codex/cursor/antigravity/zcode/opencode/pi/generic) exige HTTP/SSE no MCP do Talos. Não há abstração de transporte (YAGNI). Ponto de extensão: se um host futuro exigir HTTP/SSE, o boot fica isolado em `startStdioLoop()` (`server.js`) — trocar/adicionar transporte é localizado, sem tocar a lógica de tools/gates.
 
 ### Fronteira portável vs host-específico
 

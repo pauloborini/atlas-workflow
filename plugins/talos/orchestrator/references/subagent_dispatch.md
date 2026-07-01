@@ -38,7 +38,7 @@ O registro ativo do agent vive em `agents/<name>.md` na raiz do plugin (mesmo fo
 
 ### Limitação do host: sub-agentes de plugin não herdam MCP
 
-**Confirmado empiricamente (v0.10.1, 2026-06):** sub-agentes despachados via `subagent_type: "atlas-*"` (plugin) **não** recebem as conexões MCP do processo pai — mesmo com `mcp__plugin_talos_talos` declarado explicitamente no frontmatter `tools:`. Qualquer chamada MCP de dentro do subagente falha com `Required MCP server is not connected`. O subagente nativo `general-purpose` herda MCP + tools nativas normalmente. Bug do host (ZCode), não do plugin Atlas.
+**Confirmado empiricamente (v0.10.1, 2026-06):** sub-agentes despachados via `subagent_type: "talos-*"` (plugin) **não** recebem as conexões MCP do processo pai — mesmo com `mcp__plugin_talos_talos` declarado explicitamente no frontmatter `tools:`. Qualquer chamada MCP de dentro do subagente falha com `Required MCP server is not connected`. O subagente nativo `general-purpose` herda MCP + tools nativas normalmente. Bug do host (ZCode), não do plugin Talos.
 
 ### Workaround: fallback para `general-purpose`
 
@@ -67,4 +67,4 @@ O `prompt_template` (de `talos_capabilities.subagent_dispatch.fallback`) aponta 
 2. Diretório local de skills do host.
 3. Workspace, apenas como fallback de descoberta.
 
-Se não encontrar a skill `atlas-*` exigida, abortar. Não trocar por skill nativa ou variante antiga. Não emular inline.
+Se não encontrar a skill `talos-*` exigida, abortar. Não trocar por skill nativa ou variante antiga. Não emular inline.

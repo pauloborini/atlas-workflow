@@ -10,7 +10,7 @@ This skill assumes the implementation was guided by a plan with task-level struc
 
 The plan should also expose execution metadata:
 
-- `Plan prefix: atlas`
+- `Plan prefix: talos`
 - `Execution mode: sequencial (T01→TN)` or `orchestrated-per-slice`
 
 ## Minimum expected task fields

@@ -1,6 +1,6 @@
 # Plan Contract
 
-Input plans must follow `talos-plan-handoff` and align with `PLAN_TEMPLATE.md` / `BOUNDARY_PRD_PLAN.md` (compact template, sections 1–8). Locate both in the Atlas Workflow plugin bundle at `packages/templates/`; do not use workspace-local templates as primary sources.
+Input plans must follow `talos-plan-handoff` and align with `PLAN_TEMPLATE.md` / `BOUNDARY_PRD_PLAN.md` (compact template, sections 1–8). Locate both in the Talos plugin bundle at `packages/templates/`; do not use workspace-local templates as primary sources.
 
 If `packages/templates/PLAN_TEMPLATE.md` or `packages/templates/BOUNDARY_PRD_PLAN.md` is absent from the bundle, stop with a clear `Template canônico ausente: <nome-do-template>` error. Do not fall back silently to old local, vault, or global copies.
 
@@ -10,7 +10,7 @@ Legacy 15-section plans (handoff prompt, architecture impact block in PRD, etc.)
 
 Near the top of the artifact:
 
-- `Plan prefix: atlas`
+- `Plan prefix: talos`
 - `Execution mode: sequencial (T01→TN)` | `orchestrated-per-slice`
 - `Executor skill: talos-plan-execute`
 - `Internal validator: talos-task-validator`
